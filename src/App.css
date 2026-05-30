@@ -361,6 +361,26 @@ body,
   color: #6e7681;
 }
 
+.panel-controls__limit-msg {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  font-size: clamp(0.68rem, 0.64rem + 0.15vw, 0.76rem);
+  line-height: clamp(1.4, calc(1.36 + 0.08vw), 1.5);
+}
+
+.panel-controls__limit-msg--warn {
+  border: 1px solid #9e6a03;
+  background: rgba(210, 153, 34, 0.1);
+  color: #e3b341;
+}
+
+.panel-controls__limit-msg--error {
+  border: 1px solid #da3633;
+  background: rgba(248, 81, 73, 0.1);
+  color: #ff7b72;
+}
+
 .panel-controls__footer {
   flex-shrink: 0;
   margin-top: auto;
@@ -533,6 +553,12 @@ body,
   font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
 }
 
+.panel-changes__placeholder {
+  margin: 0;
+  color: #6e7681;
+  font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
+}
+
 .panel-changes__section {
   margin-bottom: clamp(0.85rem, 1vw + 0.5rem, 1.25rem);
 }
@@ -568,6 +594,26 @@ body,
   border-bottom: 1px solid #21262d;
 }
 
+.panel-changes__item-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.panel-changes__checkbox {
+  flex-shrink: 0;
+  margin-left: auto;
+  accent-color: #238636;
+}
+
+.panel-changes__item-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
 .panel-changes__item:last-child {
   margin-bottom: 0;
   padding-bottom: 0;
@@ -582,7 +628,6 @@ body,
 }
 
 .panel-changes__old {
-  text-decoration: line-through;
   color: #6e7681;
   word-break: break-all;
 }
@@ -602,10 +647,43 @@ body,
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: clamp(0.45rem, 1vw + 0.2rem, 0.75rem);
   padding: clamp(0.5rem, 0.9vw + 0.3rem, 0.75rem) var(--terminal-body-pad-x);
   background: #161b22;
   border-top: 1px solid #21262d;
+}
+
+.panel-changes__selected-count {
+  flex: 1 1 100%;
+  font-size: clamp(0.72rem, 0.68rem + 0.16vw, 0.8rem);
+  color: #8b949e;
+}
+
+.panel-changes__apply-msg {
+  margin: 0.75rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  font-size: clamp(0.72rem, 0.68rem + 0.16vw, 0.8rem);
+  line-height: 1.45;
+}
+
+.panel-changes__apply-msg--success {
+  border: 1px solid #238636;
+  background: rgba(35, 134, 54, 0.12);
+  color: #7ee787;
+}
+
+.panel-changes__apply-msg--warn {
+  border: 1px solid #9e6a03;
+  background: rgba(210, 153, 34, 0.1);
+  color: #e3b341;
+}
+
+.panel-changes__apply-msg--error {
+  border: 1px solid #da3633;
+  background: rgba(248, 81, 73, 0.1);
+  color: #ff7b72;
 }
 
 .panel-changes__btn {

@@ -1,17 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { basename, join } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
+import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { readDir, size } from "@tauri-apps/plugin-fs";
-import { SCAN_TYPING_LINE } from "./constants";
+import { SCAN_TYPING_LINE, MAX_FILES_TO_ORGANIZE, DEFAULT_SKIP_DIR_NAME_SET } from "./constants";
 import { ControlsPanel } from "./panels/ControlsPanel";
 import { ProposedChangesPanel } from "./panels/ProposedChangesPanel";
 import { TerminalPanel } from "./panels/TerminalPanel";
+import { apply_changes, ApplyValidationError } from "./lib/applyChanges";
+import type { ApplyChangesResult } from "./lib/applyChanges";
+import { flatten_tree_to_relative_paths } from "./lib/folderPaths";
 import { organize_folder } from "./lib/claude";
-import type { OrganizeResult, TreeNode } from "./types";
+import type { Change, OrganizeResult, TreeNode } from "./types";
 import "./App.css";
 
 type FolderScanProgress = {
   onFile: () => void;
+};
+
+type FolderScanState = {
+  fileCount: number;
+  stopped: boolean;
+  truncated: boolean;
 };
 
 function format_byte_size(bytes: number): string {
@@ -74,6 +83,10 @@ function App() {
   const [ignorePatterns, setIgnorePatterns] = useState("");
   const [organizeResult, setOrganizeResult] = useState<OrganizeResult | null>(null);
   const [isProposingChanges, setIsProposingChanges] = useState(false);
+  const [isApplyingChanges, setIsApplyingChanges] = useState(false);
+  const [applyReport, setApplyReport] = useState<ApplyChangesResult | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [scanTruncated, setScanTruncated] = useState(false);
 
   useEffect(() => {
     if (!isScanningFolder) {
@@ -90,6 +103,51 @@ function App() {
     return () => window.clearInterval(id);
   }, [isScanningFolder]);
 
+  async function rescan_selected_folder(path: string) {
+    setFolderContents([]);
+    setCollapsedKeys(new Set());
+    setFilesFoundCount(0);
+    setFolderTotalBytes(null);
+    setScanTruncated(false);
+    setIsScanningFolder(true);
+
+    const scan: FolderScanState = { fileCount: 0, stopped: false, truncated: false };
+    let raf_flush: number = 0;
+    const bump_file = () => {
+      if (scan.stopped) return;
+      scan.fileCount += 1;
+      if (raf_flush !== 0) return;
+      raf_flush = window.requestAnimationFrame(() => {
+        raf_flush = 0;
+        setFilesFoundCount(scan.fileCount);
+      });
+    };
+
+    try {
+      const label = await basename(path);
+      setRootTreeLabel(label);
+      const tree = await read_folder_contents(path, scan, { onFile: bump_file });
+      if (raf_flush !== 0) {
+        window.cancelAnimationFrame(raf_flush);
+        raf_flush = 0;
+      }
+      setFilesFoundCount(scan.fileCount);
+      setScanTruncated(scan.truncated);
+      const initially_collapsed = new Set<string>();
+      collect_collapsed_directory_keys(tree, "", initially_collapsed);
+      setCollapsedKeys(initially_collapsed);
+      setFolderContents(tree);
+      try {
+        const bytes = await size(path);
+        setFolderTotalBytes(bytes);
+      } catch {
+        setFolderTotalBytes(null);
+      }
+    } finally {
+      setIsScanningFolder(false);
+    }
+  }
+
   async function open_folder_selector_dialog() {
     const folder = await open({
       multiple: false,
@@ -98,67 +156,42 @@ function App() {
     if (folder) {
       const path = folder as string;
       setSelectedFolder(path);
-      setFolderContents([]);
-      setRootTreeLabel("");
-      setCollapsedKeys(new Set());
-      setFilesFoundCount(0);
-      setFolderTotalBytes(null);
-      setIsScanningFolder(true);
-
-      let file_count = 0;
-      let raf_flush: number = 0;
-      const bump_file = () => {
-        file_count += 1;
-        if (raf_flush !== 0) return;
-        raf_flush = window.requestAnimationFrame(() => {
-          raf_flush = 0;
-          setFilesFoundCount(file_count);
-        });
-      };
-
-      try {
-        const label = await basename(path);
-        setRootTreeLabel(label);
-        const tree = await read_folder_contents(path, { onFile: bump_file });
-        if (raf_flush !== 0) {
-          window.cancelAnimationFrame(raf_flush);
-          raf_flush = 0;
-        }
-        setFilesFoundCount(file_count);
-        console.log(tree);
-        const initially_collapsed = new Set<string>();
-        collect_collapsed_directory_keys(tree, "", initially_collapsed);
-        setCollapsedKeys(initially_collapsed);
-        setFolderContents(tree);
-        try {
-          const bytes = await size(path);
-          setFolderTotalBytes(bytes);
-        } catch {
-          setFolderTotalBytes(null);
-        }
-      } finally {
-        setIsScanningFolder(false);
-      }
+      setOrganizeResult(null);
+      setApplyReport(null);
+      setApplyError(null);
+      await rescan_selected_folder(path);
     }
   }
 
   async function read_folder_contents(
     path: string,
+    scan: FolderScanState,
     progress?: FolderScanProgress,
   ): Promise<TreeNode[]> {
+    if (scan.stopped) return [];
+
     const entries = await readDir(path);
     const tree: TreeNode[] = [];
     for (const entry of entries) {
+      if (scan.stopped) break;
+
       if (entry.isDirectory && !entry.isSymlink) {
+        if (DEFAULT_SKIP_DIR_NAME_SET.has(entry.name.toLowerCase())) continue;
+
         const childPath = await join(path, entry.name);
         tree.push({
           name: entry.name,
           isDirectory: true,
           isFile: false,
           isSymlink: false,
-          children: await read_folder_contents(childPath, progress),
+          children: await read_folder_contents(childPath, scan, progress),
         });
       } else {
+        if (scan.fileCount >= MAX_FILES_TO_ORGANIZE) {
+          scan.stopped = true;
+          scan.truncated = true;
+          break;
+        }
         progress?.onFile();
         tree.push({
           name: entry.name,
@@ -171,7 +204,14 @@ function App() {
     return tree;
   }
 
+  const tree_stats = useMemo(() => count_tree_nodes(folderContents), [folderContents]);
+
   async function organize_folder_click() {
+    if (!selectedFolder || tree_stats.files === 0 || tree_stats.files > MAX_FILES_TO_ORGANIZE) {
+      return;
+    }
+    setApplyReport(null);
+    setApplyError(null);
     setIsProposingChanges(true);
     try {
       const result = await organize_folder(
@@ -179,12 +219,56 @@ function App() {
         ignorePatterns.split(",").map((p) => p.trim()).filter(Boolean),
       );
       setOrganizeResult(result);
-      console.log(result);
     } catch (e) {
       console.error(e);
     } finally {
       setIsProposingChanges(false);
     }
+  }
+
+  async function apply_changes_click(selectedChanges: Change[]) {
+    if (!selectedFolder || selectedChanges.length === 0 || isApplyingChanges) {
+      return;
+    }
+
+    const delete_count = selectedChanges.filter((change) => change.type === "delete").length;
+    const delete_note =
+      delete_count > 0 ? `\n\n${delete_count} file(s) will be permanently deleted.` : "";
+    const confirmed = await confirm(
+      `Apply ${selectedChanges.length} selected change(s) to this folder? This cannot be automatically undone.${delete_note}`,
+      { title: "Apply proposed changes", kind: "warning", okLabel: "Apply", cancelLabel: "Cancel" },
+    );
+    if (!confirmed) return;
+
+    setApplyReport(null);
+    setApplyError(null);
+    setIsApplyingChanges(true);
+    try {
+      const report = await apply_changes(
+        selectedFolder,
+        selectedChanges,
+        flatten_tree_to_relative_paths(folderContents),
+      );
+      setApplyReport(report);
+      setOrganizeResult(null);
+      await rescan_selected_folder(selectedFolder);
+    } catch (error) {
+      const message =
+        error instanceof ApplyValidationError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to apply changes.";
+      setApplyError(message);
+    } finally {
+      setIsApplyingChanges(false);
+    }
+  }
+
+  function reject_proposed_changes() {
+    setOrganizeResult(null);
+    setApplyReport(null);
+    setApplyError(null);
   }
 
   function toggle_tree_node(key: string) {
@@ -195,8 +279,6 @@ function App() {
       return next;
     });
   }
-
-  const tree_stats = useMemo(() => count_tree_nodes(folderContents), [folderContents]);
 
   const showStats = selectedFolder && rootTreeLabel && !isScanningFolder;
   const totalSizeLabel =
@@ -217,6 +299,9 @@ function App() {
         onIgnorePatternsChange={setIgnorePatterns}
         onOrganize={organize_folder_click}
         isProposingChanges={isProposingChanges}
+        isApplyingChanges={isApplyingChanges}
+        scanTruncated={scanTruncated}
+        overFileLimit={tree_stats.files > MAX_FILES_TO_ORGANIZE}
       />
       <TerminalPanel
         scanLineTyped={scanLineTyped}
@@ -229,7 +314,13 @@ function App() {
       />
       <ProposedChangesPanel
         isProposingChanges={isProposingChanges}
+        isApplyingChanges={isApplyingChanges}
         organizeResult={organizeResult}
+        selectedFolder={selectedFolder}
+        applyReport={applyReport}
+        applyError={applyError}
+        onAccept={apply_changes_click}
+        onReject={reject_proposed_changes}
       />
     </div>
   );

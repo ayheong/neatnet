@@ -1,3 +1,8 @@
+import {
+  MAX_FILES_TO_ORGANIZE,
+  WARN_FILE_COUNT,
+} from "../constants";
+
 type ControlsPanelProps = {
   onSelectFolder: () => void;
   isScanningFolder: boolean;
@@ -11,6 +16,9 @@ type ControlsPanelProps = {
   onIgnorePatternsChange: (value: string) => void;
   onOrganize: () => void;
   isProposingChanges: boolean;
+  isApplyingChanges: boolean;
+  scanTruncated: boolean;
+  overFileLimit: boolean;
 };
 
 export function ControlsPanel({
@@ -26,9 +34,16 @@ export function ControlsPanel({
   onIgnorePatternsChange,
   onOrganize,
   isProposingChanges,
+  isApplyingChanges,
+  scanTruncated,
+  overFileLimit,
 }: ControlsPanelProps) {
   const showStats = selectedFolder && rootTreeLabel && !isScanningFolder;
-  const busy = isScanningFolder || isProposingChanges;
+  const busy = isScanningFolder || isProposingChanges || isApplyingChanges;
+  const canOrganize =
+    showStats && fileCount > 0 && !overFileLimit && !scanTruncated;
+  const showFileWarning =
+    showStats && fileCount >= WARN_FILE_COUNT && fileCount <= MAX_FILES_TO_ORGANIZE && !scanTruncated;
 
   return (
     <aside className="panel panel--controls panel-controls" aria-label="Folder actions">
@@ -70,7 +85,9 @@ export function ControlsPanel({
       <div className="panel-controls__pills" aria-label="Folder statistics">
         <div className="panel-controls__pill">
           <span className="panel-controls__pill-label">Files</span>
-          <span className="panel-controls__pill-value">{showStats ? fileCount : 0}</span>
+          <span className="panel-controls__pill-value">
+            {showStats ? `${fileCount} / ${MAX_FILES_TO_ORGANIZE}` : `0 / ${MAX_FILES_TO_ORGANIZE}`}
+          </span>
         </div>
         <div className="panel-controls__pill">
           <span className="panel-controls__pill-label">Folders</span>
@@ -86,6 +103,22 @@ export function ControlsPanel({
           </span>
         </div>
       </div>
+
+      {showStats && scanTruncated ? (
+        <p className="panel-controls__limit-msg panel-controls__limit-msg--error" role="alert">
+          Scan stopped at {MAX_FILES_TO_ORGANIZE} files. Choose a smaller folder or add ignore patterns.
+        </p>
+      ) : null}
+      {overFileLimit ? (
+        <p className="panel-controls__limit-msg panel-controls__limit-msg--error" role="alert">
+          Folder exceeds the {MAX_FILES_TO_ORGANIZE}-file limit. Propose changes is disabled.
+        </p>
+      ) : null}
+      {showFileWarning ? (
+        <p className="panel-controls__limit-msg panel-controls__limit-msg--warn">
+          Large folder ({fileCount} files). Results may be less accurate near the limit.
+        </p>
+      ) : null}
 
       <div className="panel-controls__fill" aria-hidden />
 
@@ -118,8 +151,17 @@ export function ControlsPanel({
               : "panel-controls__organize-btn"
           }
           onClick={onOrganize}
-          disabled={busy}
+          disabled={busy || !canOrganize}
           aria-busy={isProposingChanges}
+          title={
+            !canOrganize && showStats
+              ? scanTruncated || overFileLimit
+                ? `Folder exceeds the ${MAX_FILES_TO_ORGANIZE}-file limit`
+                : fileCount === 0
+                  ? "No files to organize"
+                  : undefined
+              : undefined
+          }
         >
           {isProposingChanges ? "Proposing…" : "Propose changes"}
         </button>
