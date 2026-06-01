@@ -8,7 +8,7 @@ import { ProposedChangesPanel } from "./panels/ProposedChangesPanel";
 import { TerminalPanel } from "./panels/TerminalPanel";
 import { apply_changes, ApplyValidationError } from "./lib/applyChanges";
 import type { ApplyChangesResult } from "./lib/applyChanges";
-import { flatten_tree_to_relative_paths } from "./lib/folderPaths";
+import { flatten_tree_to_file_paths } from "./lib/folderPaths";
 import { organize_folder } from "./lib/claude";
 import type { Change, OrganizeResult, TreeNode } from "./types";
 import "./App.css";
@@ -247,7 +247,7 @@ function App() {
       const report = await apply_changes(
         selectedFolder,
         selectedChanges,
-        flatten_tree_to_relative_paths(folderContents),
+        flatten_tree_to_file_paths(folderContents),
       );
       setApplyReport(report);
       setOrganizeResult(null);

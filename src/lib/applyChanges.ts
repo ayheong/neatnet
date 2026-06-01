@@ -26,9 +26,11 @@ export class ApplyValidationError extends Error {
   }
 }
 
+// \ --> /
 function normalize_slashes(path: string): string {
   return path.replace(/\\/g, "/");
 }
+
 
 export function is_safe_relative_path(path: string): boolean {
   const normalized = normalize_slashes(path.trim());
@@ -38,6 +40,7 @@ export function is_safe_relative_path(path: string): boolean {
   return !normalized.split("/").some((segment) => segment === ".." || segment === ".");
 }
 
+// ensure path is safe and is within the root folder
 export async function resolve_under_root(root: string, relative_path: string): Promise<string> {
   if (!is_safe_relative_path(relative_path)) {
     throw new ApplyValidationError(`Unsafe path: ${relative_path}`);
@@ -60,53 +63,54 @@ export async function resolve_under_root(root: string, relative_path: string): P
   ) {
     throw new ApplyValidationError(`Path escapes folder root: ${relative_path}`);
   }
-  return normalized_absolute;
+  return normalized_absolute;  // normalized absolute path
 }
 
 function is_rename_or_move(change: Change): boolean {
   return change.type === "rename" || change.type === "move";
 }
 
-export async function validate_changes(
+export async function validate_changes(  // if changes are invalid, freak out safely
   root: string,
   changes: Change[],
 ): Promise<void> {
-  if (changes.length === 0) {
+  if (changes.length === 0) {  // if no changes, throw error
     throw new ApplyValidationError("No changes selected.");
   }
 
-  const from_paths = new Set<string>();
-  const to_paths = new Set<string>();
+  const from_paths = new Set<string>();  // store unique from paths
+  const to_paths = new Set<string>();  // store unique to paths
 
   for (const change of changes) {
-    if (!change.from?.trim()) {
+    if (!change.from?.trim()) {  // if missing source path, throw error
       throw new ApplyValidationError("Change missing source path.");
     }
-    if (!is_safe_relative_path(change.from)) {
+    if (!is_safe_relative_path(change.from)) {  // if source path is not safe, throw error
       throw new ApplyValidationError(`Invalid source path: ${change.from}`);
     }
 
-    if (from_paths.has(change.from)) {
+    if (from_paths.has(change.from)) {  // if duplicate source path, throw error
       throw new ApplyValidationError(`Duplicate source path: ${change.from}`);
     }
-    from_paths.add(change.from);
+    from_paths.add(change.from);  // record source so we can detect duplicates
 
-    if (change.type === "delete") {
+    if (change.type === "delete") {  // deletes have no destination to validate
       continue;
     }
 
-    if (!change.to?.trim()) {
+    if (!change.to?.trim()) {  // if missing destination, throw error
       throw new ApplyValidationError(`Missing destination for ${change.from}`);
     }
-    if (!is_safe_relative_path(change.to)) {
+    if (!is_safe_relative_path(change.to)) {  // if destination path is not safe, throw error
       throw new ApplyValidationError(`Invalid destination path: ${change.to}`);
     }
-    if (to_paths.has(change.to)) {
+    if (to_paths.has(change.to)) {  // if duplicate destination path, throw error
       throw new ApplyValidationError(`Duplicate destination path: ${change.to}`);
     }
-    to_paths.add(change.to);
+    to_paths.add(change.to);  // record destination so we can detect duplicates
   }
 
+  // Every change: source path must exist on disk.
   for (const change of changes) {
     const from_abs = await resolve_under_root(root, change.from);
     if (!(await exists(from_abs))) {
@@ -116,20 +120,22 @@ export async function validate_changes(
     if (!is_rename_or_move(change) || !change.to) continue;
 
     const to_abs = await resolve_under_root(root, change.to);
-    const to_exists = await exists(to_abs);
-    if (!to_exists) continue;
+    if (!(await exists(to_abs))) continue;
 
-    const to_is_moved_away = changes.some(
+    // Target path is taken — OK only if another change moves that file/folder away,
+    // or from and to are the same (no real move).
+    const other_change_moves_from_target = changes.some(
       (other) => is_rename_or_move(other) && other.from === change.to,
     );
-    const to_is_same_as_from = change.from === change.to;
+    const same_path = change.from === change.to;
 
-    if (!to_is_moved_away && !to_is_same_as_from) {
+    if (!other_change_moves_from_target && !same_path) {
       throw new ApplyValidationError(`Destination already exists: ${change.to}`);
     }
   }
 }
 
+// Order rename/move changes: run those with no incoming dependency first (repeat until done).
 function order_rename_changes(changes: Change[]): Change[] {
   const remaining = changes.filter(is_rename_or_move);
   const ordered: Change[] = [];
@@ -137,23 +143,24 @@ function order_rename_changes(changes: Change[]): Change[] {
   while (remaining.length > 0) {
     const ready = remaining.filter(
       (change) => !remaining.some((other) => other !== change && other.to === change.from),
-    );
+    );  // ready = no other remaining change targets this change's source
 
     if (ready.length === 0) {
-      ordered.push(...remaining);
+      ordered.push(...remaining);  // cycle (e.g. swap): order doesn't help, apply will use temp paths
       break;
     }
 
     for (const change of ready) {
-      ordered.push(change);
+      ordered.push(change);  // add ready changes to ordered list
       const index = remaining.indexOf(change);
-      remaining.splice(index, 1);
+      remaining.splice(index, 1);  // remove ready changes from remaining list
     }
   }
 
-  return ordered;
+  return ordered;  // return ordered list
 }
 
+// Create parent folders for the given paths; skip creating ones that already exist.
 async function ensure_parent_dirs(root: string, relative_paths: string[]): Promise<void> {
   const parent_dirs = new Set<string>();
   for (const relative_path of relative_paths) {
@@ -181,39 +188,47 @@ async function break_rename_cycle(
   return temp_abs;
 }
 
+// Apply a single rename/move change
 async function apply_rename_change(
   root: string,
   change: Change,
   current_paths: Map<string, string>,
   pending_from_paths: Set<string>,
 ): Promise<void> {
+  // get absolute paths
   const from_abs = current_paths.get(change.from) ?? (await resolve_under_root(root, change.from));
   const to_abs = await resolve_under_root(root, change.to!);
 
   let source_abs = from_abs;
+  // check if something already exists at the destination
   const dest_exists = await exists(to_abs);
-  const dest_is_pending_source = change.to ? pending_from_paths.has(change.to) : false;
+  // check if another change in this batch will move that file away from the destination
+  const dest_will_be_moved_later = change.to ? pending_from_paths.has(change.to) : false;
 
-  if (dest_exists && dest_is_pending_source && to_abs !== from_abs) {
+  // destination is taken, but another change will clear it, put source in temp first
+  if (dest_exists && dest_will_be_moved_later && to_abs !== from_abs) {
     source_abs = await break_rename_cycle(root, change, source_abs);
   } else if (dest_exists && to_abs !== from_abs) {
+    // destination is taken and nothing else will move it, cannot overwrite
     throw new Error(`Destination already exists: ${change.to}`);
   }
 
+  // create parent folders if needed, then perform the rename
   await mkdir(await dirname(to_abs), { recursive: true });
   await rename(source_abs, to_abs);
-  current_paths.set(change.from, to_abs);
-  pending_from_paths.delete(change.from);
+  current_paths.set(change.from, to_abs);  // logical from path → where the file lives now
+  pending_from_paths.delete(change.from);  // this change has been applied
 }
 
+/** Applies the changes to the folder. */
 export async function apply_changes(
   root: string,
   changes: Change[],
   known_relative_paths?: string[],
 ): Promise<ApplyChangesResult> {
-  let resolved_changes = changes;
-  if (known_relative_paths && known_relative_paths.length > 0) {
-    const path_index = build_path_index(known_relative_paths);
+  let resolved_changes = changes;  // store changes
+  if (known_relative_paths && known_relative_paths.length > 0) {  // normalize paths if found
+    const path_index = build_path_index(known_relative_paths);  //   ground truth paths
     const { changes: normalized, unresolved } = normalize_changes_against_index(
       changes,
       path_index,
@@ -223,33 +238,34 @@ export async function apply_changes(
         `Could not resolve path(s): ${unresolved.join(", ")}. Re-scan the folder and propose changes again.`,
       );
     }
-    resolved_changes = normalized;
+    resolved_changes = normalized;  // store normalized changes
   }
 
-  await validate_changes(root, resolved_changes);
+  await validate_changes(root, resolved_changes);  // validate changes
 
-  const results: ApplyItemResult[] = [];
-  const renames = order_rename_changes(resolved_changes);
-  const deletes = resolved_changes.filter((change) => change.type === "delete");
+  const results: ApplyItemResult[] = [];  // store results
+  const renames = order_rename_changes(resolved_changes);  // rename + move changes, ordered
+  const deletes = resolved_changes.filter((change) => change.type === "delete");  // "delete" changes
 
-  const rename_destinations = renames
-    .map((change) => change.to)
-    .filter((path): path is string => Boolean(path));
+  const rename_destinations = renames  // "rename" destinations
+    .map((change) => change.to)  // get destinations
+    .filter((path): path is string => Boolean(path));  // filter out undefined
 
   try {
-    await ensure_parent_dirs(root, rename_destinations);
+    await ensure_parent_dirs(root, rename_destinations);  // ensure parent directories exist, else create them
   } catch (error) {
     throw new ApplyValidationError(
       error instanceof Error ? error.message : "Failed to create destination folders.",
     );
   }
 
-  const current_paths = new Map<string, string>();
-  const failed_sources = new Set<string>();
-  const pending_from_paths = new Set(renames.map((change) => change.from));
+  const current_paths = new Map<string, string>();  //  store successfully applied changes
+  const failed_sources = new Set<string>();  // store failures
+  const pending_from_paths = new Set(renames.map((change) => change.from));  // store changes pending processing
 
+  
   for (const change of renames) {
-    if (failed_sources.has(change.from)) {
+    if (failed_sources.has(change.from)) {  // if source failed, skip
       results.push({
         change,
         status: "skipped",
@@ -258,12 +274,12 @@ export async function apply_changes(
       continue;
     }
 
-    try {
+    try {  // try to apply change
       await apply_rename_change(root, change, current_paths, pending_from_paths);
-      results.push({ change, status: "applied" });
+      results.push({ change, status: "applied" });  // store success
     } catch (error) {
-      failed_sources.add(change.from);
-      pending_from_paths.delete(change.from);
+      failed_sources.add(change.from);  // store failure for later handling
+      pending_from_paths.delete(change.from);  // remove from pending
       results.push({
         change,
         status: "failed",
@@ -272,8 +288,8 @@ export async function apply_changes(
     }
   }
 
-  for (const change of deletes) {
-    if (failed_sources.has(change.from)) {
+  for (const change of deletes) {  // "delete" changes
+    if (failed_sources.has(change.from)) {  // if source failed, skip
       results.push({
         change,
         status: "skipped",
@@ -284,7 +300,7 @@ export async function apply_changes(
 
     try {
       const from_abs =
-        current_paths.get(change.from) ?? (await resolve_under_root(root, change.from));
+        current_paths.get(change.from) ?? (await resolve_under_root(root, change.from));  
       if (!(await exists(from_abs))) {
         results.push({
           change,
@@ -293,8 +309,8 @@ export async function apply_changes(
         });
         continue;
       }
-      await remove(from_abs);
-      results.push({ change, status: "applied" });
+      await remove(from_abs);  // delete file or folder from disk
+      results.push({ change, status: "applied" });  // store success
     } catch (error) {
       results.push({
         change,
@@ -303,7 +319,7 @@ export async function apply_changes(
       });
     }
   }
-
+  // count results and return
   const appliedCount = results.filter((result) => result.status === "applied").length;
   const failedCount = results.filter((result) => result.status === "failed").length;
   const skippedCount = results.filter((result) => result.status === "skipped").length;
