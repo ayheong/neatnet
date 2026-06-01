@@ -170,9 +170,11 @@ export function TerminalPanel({
               : null}
           </>
         )}
-        <span className="panel-terminal__cursor" aria-hidden>
-          █
-        </span>
+        {rootTreeLabel === "" && !isScanningFolder ? (
+          <span className="panel-terminal__cursor" aria-hidden>
+            █
+          </span>
+        ) : null}
       </div>
     </section>
   );
