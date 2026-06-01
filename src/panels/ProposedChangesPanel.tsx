@@ -1,46 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ApplyChangesResult } from "../lib/applyChanges";
-import type { Change, ChangePreview, OrganizeResult } from "../types";
-
-function ChangesSection({
-  rows,
-  selectedIds,
-  onToggle,
-  disabled,
-}: {
-  rows: ChangePreview[];
-  selectedIds: Set<string>;
-  onToggle: (id: string) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="panel-changes__section">
-      <div className="panel-changes__divider" role="separator" />
-      <ul className="panel-changes__list">
-        {rows.map((row) => (
-          <li key={row.id} className="panel-changes__item">
-            <label className="panel-changes__item-label">
-              <span className="panel-changes__item-body">
-                <span className="panel-changes__item-top">
-                  <span className="panel-changes__old">{row.from}</span>
-                  <span className="panel-changes__arrow"> →</span>
-                </span>
-                <span className="panel-changes__new">{row.to}</span>
-              </span>
-              <input
-                type="checkbox"
-                className="panel-changes__checkbox"
-                checked={selectedIds.has(row.id)}
-                onChange={() => onToggle(row.id)}
-                disabled={disabled}
-              />
-            </label>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+import type { Change, OrganizeResult } from "../types";
+import { ProposedChangesTreeView } from "./ProposedChangesTree";
 
 type ProposedChangesPanelProps = {
   isProposingChanges?: boolean;
@@ -65,15 +26,11 @@ export function ProposedChangesPanel({
   onAccept,
   onReject,
 }: ProposedChangesPanelProps) {
-  const proposed_changes_rows: ChangePreview[] = (organizeResult?.changes ?? []).map((change, i) => ({
-    id: `dump-${i}`,
-    from: change.from,
-    to: change.type === "delete" ? "(remove)" : (change.to ?? ""),
-  }));
+  const proposed_changes = organizeResult?.changes ?? [];
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selected_count = selectedIds.size;
-  const total_count = proposed_changes_rows.length;
+  const total_count = proposed_changes.length;
   const busy = isProposingChanges || isApplyingChanges;
 
   const title_suffix = isApplyingChanges
@@ -85,7 +42,9 @@ export function ProposedChangesPanel({
         : "";
 
   useEffect(() => {
-    setSelectedIds(new Set(proposed_changes_rows.map((row) => row.id)));
+    setSelectedIds(
+      new Set((organizeResult?.changes ?? []).map((_, index) => `dump-${index}`)),
+    );
   }, [organizeResult]);
 
   function toggle_selected(id: string) {
@@ -133,9 +92,9 @@ export function ProposedChangesPanel({
             <p className="panel-changes__apply-msg panel-changes__apply-msg--error" role="alert">
               {proposeError}
             </p>
-          ) : organizeResult && proposed_changes_rows.length > 0? (
-            <ChangesSection
-              rows={proposed_changes_rows}
+          ) : organizeResult && proposed_changes.length > 0 ? (
+            <ProposedChangesTreeView
+              changes={proposed_changes}
               selectedIds={selectedIds}
               onToggle={toggle_selected}
               disabled={busy}
