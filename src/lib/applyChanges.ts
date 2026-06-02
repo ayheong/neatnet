@@ -3,6 +3,7 @@ import { exists, mkdir, remove, rename } from "@tauri-apps/plugin-fs";
 import {
   build_path_index,
   normalize_changes_against_index,
+  normalize_slashes,
 } from "./folderPaths";
 import type { Change } from "../types";
 
@@ -12,12 +13,52 @@ export type ApplyItemResult = {
   error?: string;
 };
 
+export type ApplyOutcomeCounts = {
+  movedApplied: number;
+  deletedApplied: number;
+  movedFailed: number;
+  deletedFailed: number;
+  skipped: number;
+};
+
 export type ApplyChangesResult = {
   results: ApplyItemResult[];
-  appliedCount: number;
-  failedCount: number;
-  skippedCount: number;
+  outcomes: ApplyOutcomeCounts;
 };
+
+export function total_applied(outcomes: ApplyOutcomeCounts): number {
+  return outcomes.movedApplied + outcomes.deletedApplied;
+}
+
+export function total_failed(outcomes: ApplyOutcomeCounts): number {
+  return outcomes.movedFailed + outcomes.deletedFailed;
+}
+
+/** Counts applied / failed / skipped moves vs deletes from apply results. */
+export function count_apply_outcomes(results: ApplyItemResult[]): ApplyOutcomeCounts {
+  const counts: ApplyOutcomeCounts = {
+    movedApplied: 0,
+    deletedApplied: 0,
+    movedFailed: 0,
+    deletedFailed: 0,
+    skipped: 0,
+  };
+
+  for (const result of results) {
+    const is_delete = result.change.type === "delete";
+    if (result.status === "applied") {
+      if (is_delete) counts.deletedApplied += 1;
+      else counts.movedApplied += 1;
+    } else if (result.status === "failed") {
+      if (is_delete) counts.deletedFailed += 1;
+      else counts.movedFailed += 1;
+    } else if (result.status === "skipped") {
+      counts.skipped += 1;
+    }
+  }
+
+  return counts;
+}
 
 export class ApplyValidationError extends Error {
   constructor(message: string) {
@@ -25,12 +66,6 @@ export class ApplyValidationError extends Error {
     this.name = "ApplyValidationError";
   }
 }
-
-// \ --> /
-function normalize_slashes(path: string): string {
-  return path.replace(/\\/g, "/");
-}
-
 
 export function is_safe_relative_path(path: string): boolean {
   const normalized = normalize_slashes(path.trim());
@@ -320,9 +355,5 @@ export async function apply_changes(
     }
   }
   // count results and return
-  const appliedCount = results.filter((result) => result.status === "applied").length;
-  const failedCount = results.filter((result) => result.status === "failed").length;
-  const skippedCount = results.filter((result) => result.status === "skipped").length;
-
-  return { results, appliedCount, failedCount, skippedCount };
+  return { results, outcomes: count_apply_outcomes(results) };
 }

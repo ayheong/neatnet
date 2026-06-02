@@ -7,8 +7,8 @@ import {
 } from "./folderPaths";
 import { log_organize_timing, ns_to_ms } from "./organizeTiming";
 import { call_ollama } from "./ollama";
-import type { TreeNode } from "../types";
-import type { OrganizeResult, OrganizeTiming } from "../types";
+import { COPY } from "../copy";
+import type { OrganizeResult, OrganizeTiming, TreeNode } from "../types";
 
 export type OrganizeModelHost = "claude" | "ollama";
 
@@ -37,7 +37,7 @@ function resolve_api_key(user_api_key: string): string {
 export async function call_anthropic(message: string, user_api_key = ""): Promise<string> {
   const api_key = resolve_api_key(user_api_key);
   if (!api_key) {
-    throw new Error("Add your Claude API key in the sidebar to get suggestions.");
+    throw new Error(COPY.errors.claudeKey);
   }
 
   const anthropic = new Anthropic({
@@ -187,6 +187,7 @@ export async function organize_folder(
     const { changes, unresolved } = normalize_changes_against_index(
       parsed.changes ?? [],
       path_index,
+      directory_paths,
     );
     if (unresolved.length > 0) {
       console.warn("Skipped changes with unknown source paths:", unresolved);
@@ -198,7 +199,7 @@ export async function organize_folder(
       wall_ms,
     };
     log_organize_timing(timing);
-    return { changes, timing };
+    return { changes, unresolved, timing };
   } catch {
     throw new Error("Failed to parse JSON response from the model");
   }

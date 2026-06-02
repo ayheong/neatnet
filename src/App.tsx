@@ -9,6 +9,7 @@ import {
   MAX_FILES_TO_ORGANIZE,
   DEFAULT_SKIP_DIR_NAME_SET,
 } from "./constants";
+import { build_apply_confirm_message, COPY } from "./copy";
 import {
   count_visible_terminal_tree_lines,
   tree_reveal_animation_ms,
@@ -247,15 +248,16 @@ function App() {
     path: string,
     scan: FolderScanState,
     progress?: FolderScanProgress,
+    depth = 0,
   ): Promise<TreeNode[]> {
-    if (scan.stopped) return [];
+    if (scan.stopped || depth > 48) return [];
 
     const entries = await readDir(path);
     const tree: TreeNode[] = [];
     for (const entry of entries) {
       if (scan.stopped) break;
 
-      if (entry.isDirectory && !entry.isSymlink) {
+      if (entry.isDirectory) {
         if (DEFAULT_SKIP_DIR_NAME_SET.has(entry.name.toLowerCase())) continue;
 
         const childPath = await join(path, entry.name);
@@ -263,8 +265,8 @@ function App() {
           name: entry.name,
           isDirectory: true,
           isFile: false,
-          isSymlink: false,
-          children: await read_folder_contents(childPath, scan, progress),
+          isSymlink: entry.isSymlink,
+          children: await read_folder_contents(childPath, scan, progress, depth + 1),
         });
       } else {
         if (scan.fileCount >= MAX_FILES_TO_ORGANIZE) {
@@ -306,7 +308,7 @@ function App() {
     } catch (e) {
       console.error(e);
       setProposeError(
-        e instanceof Error ? e.message : "Failed to propose changes.",
+        e instanceof Error ? e.message : COPY.errors.organizeFailed,
       );
     } finally {
       setIsProposingChanges(false);
@@ -318,12 +320,14 @@ function App() {
       return;
     }
 
-    const delete_count = selectedChanges.filter((change) => change.type === "delete").length;
-    const delete_note =
-      delete_count > 0 ? `\n\n${delete_count} file(s) will be permanently deleted.` : "";
     const confirmed = await confirm(
-      `Apply ${selectedChanges.length} selected change(s) to this folder? This cannot be automatically undone.${delete_note}`,
-      { title: "Apply proposed changes", kind: "warning", okLabel: "Apply", cancelLabel: "Cancel" },
+      build_apply_confirm_message(selectedChanges),
+      {
+        title: COPY.confirm.title,
+        kind: "warning",
+        okLabel: COPY.confirm.ok,
+        cancelLabel: COPY.confirm.cancel,
+      },
     );
     if (!confirmed) return;
 
@@ -345,7 +349,7 @@ function App() {
           ? error.message
           : error instanceof Error
             ? error.message
-            : "Failed to apply changes.";
+            : COPY.errors.applyFailed;
       setApplyError(message);
     } finally {
       setIsApplyingChanges(false);
@@ -421,6 +425,8 @@ function App() {
         isApplyingChanges={isApplyingChanges}
         organizeResult={organizeResult}
         selectedFolder={selectedFolder}
+        folderContents={folderContents}
+        rootTreeLabel={rootTreeLabel}
         applyReport={applyReport}
         applyError={applyError}
         proposeError={proposeError}

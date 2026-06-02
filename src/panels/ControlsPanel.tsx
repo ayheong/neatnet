@@ -4,6 +4,7 @@ import {
   APP_TAGLINE,
   WARN_FILE_COUNT,
 } from "../constants";
+import { COPY } from "../copy";
 import type { OrganizeModelHost } from "../lib/claude";
 import {
   format_ollama_pull_command,
@@ -92,7 +93,7 @@ export function ControlsPanel({
     recommended_pull.tag,
   );
   return (
-    <aside className="panel panel--controls panel-controls" aria-label="Folder actions">
+    <aside className="panel panel--controls panel-controls" aria-label="Sidebar">
       <header className="panel-terminal__titlebar panel-controls__titlebar">
         <span className="panel-terminal__title">
           <span className="panel-terminal__title-icon ti ti-layout-sidebar" aria-hidden />
@@ -111,7 +112,7 @@ export function ControlsPanel({
         disabled={busy}
       >
         <span className="panel-controls__select-icon ti ti-folder" aria-hidden />
-        {isScanningFolder ? "Scanning…" : "Select Folder"}
+        {isScanningFolder ? COPY.sidebar.scanning : COPY.sidebar.openFolder}
       </button>
 
       <div
@@ -124,11 +125,11 @@ export function ControlsPanel({
         {selectedFolder ? (
           <span className="panel-controls__path-text">{selectedFolder}</span>
         ) : (
-          <span className="panel-controls__path-placeholder">No folder selected</span>
+          <span className="panel-controls__path-placeholder">{COPY.sidebar.noFolder}</span>
         )}
       </div>
 
-      <div className="panel-controls__pills" aria-label="Folder statistics">
+      <div className="panel-controls__pills" aria-label={COPY.sidebar.statsAria}>
         <div className="panel-controls__pill">
           <span className="panel-controls__pill-label">Files</span>
           <span className="panel-controls__pill-value">
@@ -152,17 +153,19 @@ export function ControlsPanel({
 
       {showStats && scanTruncated ? (
         <p className="panel-controls__limit-msg panel-controls__limit-msg--error" role="alert">
-          This folder has more than {MAX_FILES_TO_ORGANIZE} files, so we only scanned part of it. Try a smaller folder or tell the AI what to skip in Instructions below.
+          This folder is larger than we can scan in one go ({MAX_FILES_TO_ORGANIZE} file max).
+          Try a smaller folder, or add skip rules under Instructions.
         </p>
       ) : null}
       {overFileLimit ? (
         <p className="panel-controls__limit-msg panel-controls__limit-msg--error" role="alert">
-          This folder has too many files (over {MAX_FILES_TO_ORGANIZE}). Choose a smaller folder to get suggestions.
+          Too many files in this folder (limit is {MAX_FILES_TO_ORGANIZE}). Open a smaller folder
+          to continue.
         </p>
       ) : null}
       {showFileWarning ? (
         <p className="panel-controls__limit-msg panel-controls__limit-msg--warn">
-          Large folder ({fileCount} files). Suggestions may be less accurate when you're near the limit.
+          Large folder ({fileCount} files). Previews may be less accurate near the limit.
         </p>
       ) : null}
 
@@ -170,7 +173,7 @@ export function ControlsPanel({
 
       <div className="panel-controls__provider">
         <span className="panel-controls__api-key-label" id="model-provider-label">
-          Choice of Model
+          {COPY.sidebar.modelSection}
         </span>
         <div
           className="panel-controls__provider-toggle"
@@ -186,7 +189,7 @@ export function ControlsPanel({
             }
             role="radio"
             aria-checked={modelHost === "claude"}
-            title="Recommended — Claude in the cloud, needs an Anthropic API key"
+            title="Cloud AI — fast and accurate; requires an Anthropic API key"
             disabled={busy}
             onClick={() => onModelHostChange("claude")}
           >
@@ -205,7 +208,7 @@ export function ControlsPanel({
             }
             role="radio"
             aria-checked={modelHost === "ollama"}
-            title="Ollama on this computer — runs locally, no API key"
+            title="Runs on this computer — private, no API key"
             disabled={busy}
             onClick={() => onModelHostChange("ollama")}
           >
@@ -232,7 +235,7 @@ export function ControlsPanel({
             disabled={busy}
           />
           <p className="panel-controls__api-key-hint">
-            Claude runs in the cloud. Key is saved only on this computer.{" "}
+            Stored only on this device.{" "}
             <a
               className="panel-controls__api-key-link"
               href="https://console.anthropic.com/settings/keys"
@@ -245,7 +248,7 @@ export function ControlsPanel({
           </p>
           {!hasClaudeApiKey ? (
             <p className="panel-controls__limit-msg panel-controls__limit-msg--warn" role="status">
-              Add your Claude API key above to get suggestions.
+              {COPY.errors.claudeKey}
             </p>
           ) : null}
         </div>
@@ -253,14 +256,13 @@ export function ControlsPanel({
         <div className="panel-controls__ollama-section">
           <div className="panel-controls__ollama-notice" role="note">
             <p className="panel-controls__ollama-notice-text">
-              Performance depends on your chosen model. Larger models generally give
-              better results but need significantly more compute; smaller models run
-              faster but may not produce reliable suggestions on large folders.
+              Larger models usually organize better but need more RAM and a capable GPU. Smaller
+              models are faster and work better on everyday laptops.
             </p>
           </div>
           {ollamaModelsLoading ? (
             <p className="panel-controls__api-key-hint" role="status">
-              Checking which Ollama models you have…
+              Looking for installed models…
             </p>
           ) : ollamaListError ? (
             <p className="panel-controls__limit-msg panel-controls__limit-msg--error" role="alert">
@@ -283,7 +285,7 @@ export function ControlsPanel({
                 aria-live="polite"
               >
                 <option value="" disabled>
-                  Select model
+                  Choose a model
                 </option>
                 {ollamaModels.map((name) => (
                   <option key={name} value={name}>
@@ -292,12 +294,12 @@ export function ControlsPanel({
                 ))}
               </select>
               <p id="ollama-model-hint" className="panel-controls__api-key-hint">
-                Choose a model you have installed in Ollama.
+                Pick a model you've already downloaded in Ollama.
               </p>
             </div>
           ) : !ollamaModelsLoading && !ollamaListError ? (
             <p className="panel-controls__api-key-hint" role="status">
-              No Ollama models installed yet. Download one with the command below (Terminal or PowerShell).
+              No models yet. Install one with the command below.
             </p>
           ) : null}
 
@@ -357,12 +359,12 @@ export function ControlsPanel({
 
       <div className="panel-controls__preferences">
         <label className="panel-controls__preferences-label" htmlFor="user-preferences-input">
-          Instructions
+          {COPY.sidebar.instructionsLabel}
         </label>
         <textarea
           id="user-preferences-input"
           className="panel-controls__preferences-input"
-          placeholder="e.g. Don't touch my Photos folder; group PDFs by year; never delete files"
+          placeholder={COPY.sidebar.instructionsPlaceholder}
           value={userPreferences}
           onChange={(e) => onUserPreferencesChange(e.target.value)}
           rows={2}
@@ -370,9 +372,7 @@ export function ControlsPanel({
           spellCheck={false}
           disabled={busy}
         />
-        <p className="panel-controls__preferences-hint">
-          Optional. Applies to Claude or Ollama, depending on your choice above.
-        </p>
+        <p className="panel-controls__preferences-hint">{COPY.sidebar.instructionsHint}</p>
       </div>
 
       <footer className="panel-controls__footer">
@@ -389,20 +389,20 @@ export function ControlsPanel({
           title={
             !canOrganize && showStats
               ? modelHost === "claude" && !hasClaudeApiKey
-                ? "Add your Claude API key first"
+                ? COPY.errors.claudeKey
                 : modelHost === "ollama" && ollamaModels.length === 0
-                  ? "Install an Ollama model first"
+                  ? "Install an Ollama model to continue"
                   : modelHost === "ollama" && !selectedOllamaModel.trim()
-                    ? "Select an Ollama model first"
+                    ? COPY.errors.ollamaSelectModel
                     : scanTruncated || overFileLimit
-                    ? `This folder has too many files (over ${MAX_FILES_TO_ORGANIZE})`
-                    : fileCount === 0
-                      ? "This folder has no files to organize"
-                      : undefined
+                      ? `This folder exceeds the ${MAX_FILES_TO_ORGANIZE}-file limit`
+                      : fileCount === 0
+                        ? "This folder has no files to organize"
+                        : undefined
               : undefined
           }
         >
-          {isProposingChanges ? "Getting suggestions…" : "Propose changes"}
+          {isProposingChanges ? COPY.sidebar.organizing : COPY.sidebar.organize}
         </button>
       </footer>
     </aside>

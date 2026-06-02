@@ -1,24 +1,8 @@
 import type { Change, TreeNode } from "../types";
 
 // \ --> /
-function normalize_slashes(path: string): string {
+export function normalize_slashes(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\.\//, "");
-}
-
-/** Collects every file and directory path relative to the scan root. */
-export function flatten_tree_to_relative_paths(
-  nodes: TreeNode[],
-  prefix = "",
-): string[] {
-  const paths: string[] = [];
-  for (const node of nodes) {
-    const relative = prefix ? `${prefix}/${node.name}` : node.name;
-    paths.push(relative);
-    if (node.isDirectory && node.children?.length) {
-      paths.push(...flatten_tree_to_relative_paths(node.children, relative));
-    }
-  }
-  return paths;
 }
 
 /** Collects file paths only (excludes directories). Used for AI proposals and apply "from" resolution. */
@@ -34,7 +18,7 @@ export function flatten_tree_to_file_paths(
         paths.push(...flatten_tree_to_file_paths(node.children, relative));
       }
     } else {
-      paths.push(relative);
+      paths.push(normalize_slashes(relative));
     }
   }
   return paths;
@@ -84,21 +68,66 @@ export function resolve_path_in_index(
   return null;  // no match
 }
 
+function join_relative_path(dir: string, fileName: string): string {
+  if (!dir) return fileName;
+  return `${dir}/${fileName}`;
+}
+
+function basename_from_path(path: string): string {
+  const parts = normalize_slashes(path).split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+/**
+ * When the model's "to" is a folder path (e.g. "Downloads"), append the source file name
+ * so the preview does not show a phantom file called "Downloads" beside the real folder.
+ */
+export function resolve_move_destination_path(
+  from: string,
+  requestedTo: string,
+  fileIndex: Set<string>,
+  directoryPaths: string[],
+): string {
+  const to = normalize_slashes(requestedTo.trim()).replace(/\/+$/, "");
+  if (!to) return to;
+
+  const fromNorm = normalize_slashes(from);
+  const sourceName = basename_from_path(fromNorm);
+
+  if (fileIndex.has(to)) return to;
+
+  const dirByLower = new Map<string, string>();
+  for (const dir of directoryPaths) {
+    const normalized = normalize_slashes(dir);
+    dirByLower.set(normalized.toLowerCase(), normalized);
+  }
+
+  const matchedDir = dirByLower.get(to.toLowerCase());
+  if (matchedDir) {
+    return join_relative_path(matchedDir, sourceName);
+  }
+
+  const lower = to.toLowerCase();
+  const case_insensitive = [...fileIndex].filter((path) => path.toLowerCase() === lower);
+  if (case_insensitive.length === 1) return case_insensitive[0]!;
+
+  return to;
+}
+
 /** Resolves "to" paths: exact match only if already in the folder; otherwise keeps the new path. */
-function resolve_destination_path(requested: string, index: Set<string>): string {
-  const normalized = normalize_slashes(requested.trim());
-  if (index.has(normalized)) return normalized;
-
-  const lower = normalized.toLowerCase();
-  const case_insensitive = [...index].filter((path) => path.toLowerCase() === lower);
-  if (case_insensitive.length === 1) return case_insensitive[0];
-
-  return normalized;
+function resolve_destination_path(
+  from: string,
+  requested: string,
+  index: Set<string>,
+  directoryPaths: string[],
+): string {
+  return resolve_move_destination_path(from, requested, index, directoryPaths);
 }
 
 export function normalize_changes_against_index(
   changes: Change[],
   index: Set<string>,
+  directoryPaths: string[] = [],
 ): { changes: Change[]; unresolved: string[] } {
   const unresolved: string[] = [];  // paths that were not found in the index
   const normalized: Change[] = [];  // changes that were resolved against the index
@@ -120,11 +149,16 @@ export function normalize_changes_against_index(
       continue;
     }
 
-    const to_path = resolve_destination_path(change.to, index);
+    const to_path = resolve_destination_path(
+      from_resolved,
+      change.to,
+      index,
+      directoryPaths,
+    );
     normalized.push({  // if rename or move, add to normalized
       ...change,
       from: from_resolved,
-      to: to_path,  // matched to index when possible, otherwise normalized new path
+      to: to_path,
     });
   }
 

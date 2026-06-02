@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { ROOT_TREE_KEY, SCAN_TYPING_LINE } from "../constants";
+import { COPY } from "../copy";
 import { next_tree_reveal_style, with_tree_reveal_class } from "../lib/treeReveal";
 import type { TreeNode } from "../types";
 
@@ -110,11 +111,12 @@ export function TerminalPanel({
     rootTreeLabel !== "" && is_tree_node_expanded(collapsedKeys, ROOT_TREE_KEY);
   const line_index = { current: 0 };
   return (
-    <section className="panel panel--terminal" aria-label="Folder tree output">
+    <section className="panel panel--terminal" aria-label={COPY.currentFolder.title}>
       <header className="panel-terminal__titlebar">
         <span className="panel-terminal__title">
           <span className="panel-terminal__title-icon ti ti-folder-open" aria-hidden />
-          current tree{rootTreeLabel ? ` — ${rootTreeLabel}` : ""}
+          {COPY.currentFolder.title}
+          {rootTreeLabel ? ` · ${rootTreeLabel}` : ""}
         </span>
       </header>
       <div className="panel-terminal__body">
@@ -139,7 +141,7 @@ export function TerminalPanel({
             </p>
             <p className="panel-terminal__scan-counter">
               <span className="terminal-tree-line__glyphs">&gt; </span>
-              <span className="panel-terminal__scan-counter-label">files found:</span>{" "}
+              <span className="panel-terminal__scan-counter-label">{COPY.scan.filesFound}:</span>{" "}
               <span className="panel-terminal__scan-counter-value">{filesFoundCount}</span>
               <span className="panel-terminal__scan-dots" aria-hidden>
                 <span />
@@ -151,7 +153,7 @@ export function TerminalPanel({
         ) : rootTreeLabel === "" ? (
           <p className="panel-terminal__placeholder">
             <span className="terminal-tree-line__glyphs">$ </span>
-            <span className="panel-terminal__muted">Select a folder to list contents…</span>
+            <span className="panel-terminal__muted">{COPY.currentFolder.empty}</span>
           </p>
         ) : (
           <div

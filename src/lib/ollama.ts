@@ -1,3 +1,5 @@
+import { COPY } from "../copy";
+
 const OLLAMA_BASE_URL =
   import.meta.env.VITE_OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434";
 
@@ -65,10 +67,10 @@ export function resolve_model_name(
 ): string {
   const trimmed = wanted?.trim();
   if (!trimmed) {
-    throw new Error("Select an Ollama model first.");
+    throw new Error(COPY.errors.ollamaSelectModel);
   }
   if (installed?.length && !installed.includes(trimmed)) {
-    throw new Error(`Ollama model "${trimmed}" is not installed.`);
+    throw new Error(COPY.errors.ollamaNotInstalled(trimmed));
   }
   return trimmed;
 }
@@ -109,7 +111,7 @@ export async function call_ollama(
   } catch (e) {
     const detail = e instanceof Error ? ` ${e.message}` : "";
     throw new Error(
-      `Ollama chat failed for model "${model}". Is Ollama running? Did you run ollama pull ${model}?${detail}`,
+      `Couldn't reach Ollama. Make sure it's running, then try: ollama pull ${model}${detail}`,
     );
   }
 }

@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ApplyChangesResult } from "../lib/applyChanges";
+import { total_failed, type ApplyChangesResult } from "../lib/applyChanges";
 import {
-  build_proposed_changes_tree,
-  count_visible_proposed_tree_lines,
-  initial_proposed_tree_collapsed_keys,
-} from "../lib/proposedChangesTree";
+  apply_override_to_working_changes,
+  build_preview_entries,
+  collect_preview_folder_keys,
+  count_visible_preview_tree_lines,
+  derive_apply_changes,
+  initial_pending_deletes_from_changes,
+  preview_entries_to_tree,
+} from "../lib/previewLayout";
 import { tree_reveal_animation_ms } from "../lib/terminalTreeLines";
-import type { Change, OrganizeResult } from "../types";
-import { ProposedChangesTreeView } from "./ProposedChangesTree";
+import { COPY, format_apply_report_message } from "../copy";
+import { normalize_slashes } from "../lib/folderPaths";
+import type { Change, OrganizeResult, TreeNode } from "../types";
+import { PreviewLayoutTreeView } from "./PreviewLayoutTreeView";
 
 type ProposedChangesPanelProps = {
   isProposingChanges?: boolean;
   isApplyingChanges?: boolean;
   organizeResult?: OrganizeResult | null;
   selectedFolder?: string;
+  folderContents?: TreeNode[];
+  rootTreeLabel?: string;
   applyReport?: ApplyChangesResult | null;
   applyError?: string | null;
   proposeError?: string | null;
@@ -26,6 +34,8 @@ export function ProposedChangesPanel({
   isApplyingChanges = false,
   organizeResult = null,
   selectedFolder = "",
+  folderContents = [],
+  rootTreeLabel = "",
   applyReport = null,
   applyError = null,
   proposeError = null,
@@ -34,135 +44,137 @@ export function ProposedChangesPanel({
 }: ProposedChangesPanelProps) {
   const proposed_changes = organizeResult?.changes ?? [];
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [cursor_popout, setCursorPopout] = useState<{ x: number; y: number } | null>(null);
+  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(() => new Set());
+  const [pathOverrides, setPathOverrides] = useState<Map<string, string>>(new Map());
+  const [workingChanges, setWorkingChanges] = useState<Change[]>([]);
   const [isTreeRevealing, setIsTreeRevealing] = useState(false);
-  const proposed_tree = useMemo(
-    () => (proposed_changes.length > 0 ? build_proposed_changes_tree(proposed_changes) : null),
-    [proposed_changes],
+
+  const changes_for_preview =
+    workingChanges.length > 0 ? workingChanges : proposed_changes;
+
+  const preview_entries = useMemo(
+    () =>
+      build_preview_entries(
+        folderContents,
+        changes_for_preview,
+        pathOverrides,
+        pendingDeletes,
+      ),
+    [folderContents, changes_for_preview, pathOverrides, pendingDeletes],
   );
-  const selected_count = selectedIds.size;
-  const total_count = proposed_changes.length;
+  const preview_tree = useMemo(
+    () => preview_entries_to_tree(preview_entries),
+    [preview_entries],
+  );
+
+  const apply_changes = useMemo(
+    () =>
+      derive_apply_changes(
+        changes_for_preview,
+        pathOverrides,
+        folderContents,
+        pendingDeletes,
+      ),
+    [changes_for_preview, pathOverrides, folderContents, pendingDeletes],
+  );
+
+  const apply_count = apply_changes.length;
   const busy = isProposingChanges || isApplyingChanges;
   const has_proposal = Boolean(organizeResult);
-  const show_propose_first_hint = Boolean(selectedFolder) && !has_proposal && !busy;
-
-  const title_suffix = isApplyingChanges
-    ? " — applying…"
-    : isProposingChanges
-      ? " — planning…"
-      : organizeResult
-        ? ` — ${selected_count} / ${total_count} selected`
-        : "";
+  const show_preview = has_proposal && Boolean(rootTreeLabel);
+  const show_waiting_for_preview = Boolean(selectedFolder) && !has_proposal && !busy;
 
   useEffect(() => {
-    setSelectedIds(
-      new Set((organizeResult?.changes ?? []).map((_, index) => `dump-${index}`)),
-    );
+    const changes = organizeResult?.changes ?? [];
+    setPendingDeletes(initial_pending_deletes_from_changes(changes));
+    setPathOverrides(new Map());
+    setWorkingChanges(changes);
   }, [organizeResult]);
 
   useEffect(() => {
-    if (!show_propose_first_hint) {
-      setCursorPopout(null);
-    }
-  }, [show_propose_first_hint]);
-
-  useEffect(() => {
-    if (!organizeResult || proposed_changes.length === 0) {
+    if (!organizeResult || !show_preview) {
       setIsTreeRevealing(false);
       return;
     }
     setIsTreeRevealing(true);
-  }, [organizeResult, proposed_changes.length]);
+  }, [organizeResult, show_preview]);
 
   useEffect(() => {
-    if (!isTreeRevealing || !proposed_tree) return;
-    const collapsed = initial_proposed_tree_collapsed_keys(proposed_tree);
-    const line_count = count_visible_proposed_tree_lines(proposed_tree, collapsed);
+    if (!isTreeRevealing || !show_preview) return;
+    const collapsed = new Set(collect_preview_folder_keys(preview_tree));
+    const line_count = count_visible_preview_tree_lines(
+      preview_tree,
+      collapsed,
+      Boolean(rootTreeLabel),
+    );
     const id = window.setTimeout(
       () => setIsTreeRevealing(false),
       tree_reveal_animation_ms(line_count),
     );
     return () => window.clearTimeout(id);
-  }, [isTreeRevealing, proposed_tree]);
+  }, [isTreeRevealing, show_preview, preview_tree, rootTreeLabel]);
 
-  function update_cursor_popout(event: React.MouseEvent) {
-    setCursorPopout({ x: event.clientX, y: event.clientY });
-  }
-
-  function toggle_selected(id: string) {
-    setSelectedIds((prev) => {
+  function handle_toggle_delete(sourcePath: string) {
+    const key = normalize_slashes(sourcePath);
+    setPendingDeletes((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
 
-  function set_ids_selected(ids: string[], selected: boolean) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      for (const id of ids) {
-        if (selected) next.add(id);
-        else next.delete(id);
-      }
+  function handle_move_file(sourcePath: string, newDisplayPath: string) {
+    const normalized_source = normalize_slashes(sourcePath);
+    const normalized_dest = normalize_slashes(newDisplayPath);
+    setPathOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(normalized_source, normalized_dest);
       return next;
     });
+    setWorkingChanges((prev) =>
+      apply_override_to_working_changes(prev, normalized_source, normalized_dest),
+    );
   }
 
   function accept_click() {
-    const selectedChanges = (organizeResult?.changes ?? []).filter((_, i) =>
-      selectedIds.has(`dump-${i}`),
-    );
-    onAccept(selectedChanges);
+    onAccept(apply_changes);
   }
 
-  const first_failed = applyReport?.results.find((result) => result.status === "failed");
-
   return (
-    <section className="panel panel--changes" aria-label="Proposed changes">
+    <section className="panel panel--changes" aria-label={COPY.preview.ariaLabel}>
       <header className="panel-terminal__titlebar">
         <span className="panel-terminal__title">
           <span className="panel-terminal__title-icon ti ti-wand" aria-hidden />
-          proposed changes
-          <span className="panel-changes__title-suffix" aria-live="polite">
-            {title_suffix}
-          </span>
+          {COPY.preview.title}
         </span>
       </header>
       <div className="panel-changes__frame">
         <div className="panel-changes__scroll" aria-busy={busy}>
           {isApplyingChanges ? (
-            <p className="panel-changes__proposing-hint">Applying selected changes to disk…</p>
+            <p className="panel-changes__proposing-hint">{COPY.preview.applying}</p>
           ) : isProposingChanges ? (
             <p className="panel-changes__proposing-hint panel-changes__proposing-hint--pulse">
-              Thinking about how to organize your files…
+              {COPY.preview.planning}
             </p>
           ) : !selectedFolder ? (
-            <p className="panel-changes__placeholder">
-              Select a folder, then ask for organization suggestions from the sidebar.
-            </p>
+            <p className="panel-changes__placeholder">{COPY.preview.emptyNoFolder}</p>
           ) : proposeError ? (
             <p className="panel-changes__apply-msg panel-changes__apply-msg--error" role="alert">
               {proposeError}
             </p>
-          ) : organizeResult && proposed_changes.length > 0 ? (
-            <ProposedChangesTreeView
-              changes={proposed_changes}
-              selectedIds={selectedIds}
-              onToggle={toggle_selected}
-              onSetSelection={set_ids_selected}
+          ) : show_preview ? (
+            <PreviewLayoutTreeView
+              entries={preview_entries}
+              previewTree={preview_tree}
+              rootLabel={rootTreeLabel}
+              onMoveFile={handle_move_file}
+              onToggleDelete={handle_toggle_delete}
               disabled={busy}
               isTreeRevealing={isTreeRevealing}
             />
-          ) : organizeResult ? (
-            <p className="panel-changes__placeholder">
-              No changes suggested — your folder might already be in good shape.
-            </p>
           ) : applyReport || applyError ? null : (
-            <p className="panel-changes__placeholder">
-              Ask for suggestions from the sidebar to see a plan for this folder.
-            </p>
+            <p className="panel-changes__placeholder">{COPY.preview.emptyReady}</p>
           )}
 
           {applyError ? (
@@ -174,71 +186,45 @@ export function ProposedChangesPanel({
           {applyReport ? (
             <p
               className={
-                applyReport.failedCount > 0
+                total_failed(applyReport.outcomes) > 0
                   ? "panel-changes__apply-msg panel-changes__apply-msg--warn"
                   : "panel-changes__apply-msg panel-changes__apply-msg--success"
               }
               role="status"
             >
-              {applyReport.appliedCount} applied
-              {applyReport.failedCount > 0 ? `, ${applyReport.failedCount} failed` : ""}
-              {applyReport.skippedCount > 0 ? `, ${applyReport.skippedCount} skipped` : ""}.
-              {first_failed?.error ? ` First error: ${first_failed.error}` : ""}
+              {format_apply_report_message(applyReport)}
             </p>
           ) : null}
         </div>
         <footer
           className={
-            show_propose_first_hint
+            show_waiting_for_preview
               ? "panel-changes__footer panel-changes__footer--awaiting-proposal"
               : "panel-changes__footer"
           }
         >
-          {has_proposal ? (
-            <span className="panel-changes__selected-count" aria-live="polite">
-              {selected_count} of {total_count} selected
-            </span>
+          {show_waiting_for_preview ? (
+            <span className="panel-changes__footer-hint">{COPY.preview.footerWaiting}</span>
           ) : null}
-          <div
-            className="panel-changes__footer-actions"
-            onMouseEnter={show_propose_first_hint ? update_cursor_popout : undefined}
-            onMouseMove={show_propose_first_hint ? update_cursor_popout : undefined}
-            onMouseLeave={show_propose_first_hint ? () => setCursorPopout(null) : undefined}
-          >
+          <div className="panel-changes__footer-actions">
             <button
               type="button"
               className="panel-changes__btn panel-changes__btn--reject"
               onClick={onReject}
               disabled={busy || !has_proposal}
             >
-              Reject
+              {COPY.preview.startOver}
             </button>
             <button
               type="button"
               className="panel-changes__btn panel-changes__btn--accept"
-              disabled={busy || !has_proposal || selected_count === 0}
+              disabled={busy || !has_proposal || apply_count === 0}
               onClick={accept_click}
             >
-              {isApplyingChanges
-                ? "Applying…"
-                : selected_count === total_count
-                  ? "Accept all"
-                  : `Accept selected (${selected_count})`}
+              {isApplyingChanges ? COPY.preview.applyingBtn : COPY.preview.apply}
             </button>
           </div>
         </footer>
-        {show_propose_first_hint && cursor_popout ? (
-          <p
-            className="panel-changes__footer-popout panel-changes__footer-popout--at-cursor"
-            role="tooltip"
-            style={{
-              left: cursor_popout.x + 14,
-              top: cursor_popout.y + 14,
-            }}
-          >
-            Get suggestions from the sidebar first.
-          </p>
-        ) : null}
       </div>
     </section>
   );
