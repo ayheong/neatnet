@@ -14,6 +14,7 @@ body,
 :root {
   --app-font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
+  --app-mono-font: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Monaco, Consolas, monospace;
   font-family: var(--app-font);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -27,6 +28,7 @@ body,
   --panel-title-size: clamp(1.2rem, 1rem + 1vw, 1.65rem);
   --panel-path-size: clamp(0.76rem, 0.68rem + 0.35vw, 0.92rem);
   --terminal-font: clamp(0.8rem, 0.72rem + 0.4vw, 0.95rem);
+  --terminal-line-height: clamp(1.5, calc(1.46 + 0.12vw), 1.65);
   --terminal-title-font: clamp(0.68rem, 0.62rem + 0.25vw, 0.8rem);
   --terminal-body-pad-x: clamp(0.55rem, 1vw + 0.3rem, 1rem);
   --terminal-body-pad-y: clamp(0.55rem, 0.9vw + 0.35rem, 0.95rem);
@@ -158,7 +160,7 @@ select {
   border-radius: 6px;
   background: #1a1c21;
   border: 1px solid #33353c;
-  font-family: var(--app-font);
+  font-family: var(--app-mono-font);
   font-size: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
   line-height: 1.45;
   color: #b1bac4;
@@ -207,7 +209,7 @@ select {
 
 .panel-controls__pill-value {
   display: block;
-  font-family: var(--app-font);
+  font-family: var(--app-mono-font);
   font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
   font-weight: 500;
   color: #b1bac4;
@@ -240,7 +242,7 @@ select {
   border-radius: 6px;
   background: #0d1117;
   color: #c9d1d9;
-  font-family: var(--app-font);
+  font-family: var(--app-mono-font);
   font-size: clamp(0.72rem, 0.68rem + 0.14vw, 0.8rem);
   line-height: 1.4;
 }
@@ -289,7 +291,7 @@ select {
   border-radius: 6px;
   border: 1px solid #33353c;
   padding: 0.5rem 0.6rem;
-  font-family: var(--app-font);
+  font-family: var(--app-mono-font);
   font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
   line-height: 1.45;
   color: #e6edf3;
@@ -482,17 +484,22 @@ select {
   flex-direction: column;
 }
 
+.panel-terminal__body,
+.panel-changes__scroll {
+  font-family: var(--app-mono-font);
+  font-size: var(--terminal-font);
+  line-height: var(--terminal-line-height);
+  color: #c9d1d9;
+  -webkit-font-smoothing: antialiased;
+}
+
 .panel-changes__scroll {
   flex: 1;
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
-  padding: var(--terminal-body-pad-y) var(--terminal-body-pad-x) clamp(0.5rem, 0.8vw + 0.25rem, 0.85rem);
-  font-family: var(--app-font);
-  font-size: var(--terminal-font);
-  line-height: clamp(1.5, calc(1.46 + 0.12vw), 1.65);
-  color: #c9d1d9;
-  -webkit-font-smoothing: antialiased;
+  padding: var(--terminal-body-pad-y) var(--terminal-body-pad-x)
+    clamp(0.65rem, 1vw + 0.4rem, 1rem);
 }
 
 .panel-changes__title-suffix {
@@ -507,7 +514,6 @@ select {
   border: 1px solid #30363d;
   background: rgba(56, 139, 253, 0.08);
   color: #79c0ff;
-  font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
 }
 
 .panel-changes__proposing-hint--pulse {
@@ -533,7 +539,6 @@ select {
 .panel-changes__placeholder {
   margin: 0;
   color: #6e7681;
-  font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
 }
 
 .panel-changes__tree {
@@ -542,13 +547,11 @@ select {
 
 .panel-changes__tree-hint {
   margin: 0 0 0.65rem;
-  font-size: clamp(0.72rem, 0.68rem + 0.16vw, 0.8rem);
   color: #8b949e;
 }
 
 .panel-changes__tree-line {
-  align-items: center;
-  min-height: clamp(1.65em, calc(1.5em + 0.35vw), 1.9em);
+  align-items: baseline;
 }
 
 .panel-changes__tree-folder-hit {
@@ -789,8 +792,6 @@ select {
   margin: 0.75rem 0 0;
   padding: 0.45rem 0.55rem;
   border-radius: 6px;
-  font-size: clamp(0.72rem, 0.68rem + 0.16vw, 0.8rem);
-  line-height: 1.45;
 }
 
 .panel-changes__apply-msg--success {
@@ -889,7 +890,7 @@ select {
   align-items: center;
   gap: 0.4rem;
   min-width: 0;
-  font-family: var(--app-font);
+  font-family: var(--app-mono-font);
   font-size: var(--terminal-title-font);
   letter-spacing: 0.02em;
   color: #8b949e;
@@ -911,13 +912,9 @@ select {
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
-  padding: var(--terminal-body-pad-y) var(--terminal-body-pad-x) clamp(0.65rem, 1vw + 0.4rem, 1rem);
+  padding: var(--terminal-body-pad-y) var(--terminal-body-pad-x)
+    clamp(0.65rem, 1vw + 0.4rem, 1rem);
   border-radius: 0 0 9px 9px;
-  font-family: var(--app-font);
-  font-size: var(--terminal-font);
-  line-height: clamp(1.5, calc(1.46 + 0.12vw), 1.65);
-  color: #c9d1d9;
-  -webkit-font-smoothing: antialiased;
 }
 
 .panel-terminal__placeholder {
