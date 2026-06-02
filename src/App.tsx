@@ -27,6 +27,11 @@ import {
 } from "./lib/claudeApiKey";
 import type { Change, OrganizeResult, TreeNode } from "./types";
 import "./App.css";
+import {
+  list_ollama_model_infos,
+  pick_strongest_ollama_model,
+} from "./lib/ollama";
+import type { OrganizeModelHost } from "./lib/claude";
 
 type FolderScanProgress = {
   onFile: () => void;
@@ -105,6 +110,11 @@ function App() {
   const [proposeError, setProposeError] = useState<string | null>(null);
   const [scanTruncated, setScanTruncated] = useState(false);
   const [isTreeRevealing, setIsTreeRevealing] = useState(false);
+  const [modelHost, setModelHost] = useState<OrganizeModelHost>("claude");
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [selectedOllamaModel, setSelectedOllamaModel] = useState("");
+  const [ollamaModelsLoading, setOllamaModelsLoading] = useState(false);
+  const [ollamaListError, setOllamaListError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isScanningFolder) {
@@ -134,6 +144,39 @@ function App() {
     );
     return () => window.clearTimeout(id);
   }, [isTreeRevealing, folderContents, collapsedKeys, rootTreeLabel]);
+
+  useEffect(() => {
+    if (modelHost !== "ollama") return;
+    let cancelled = false;
+    setOllamaModelsLoading(true);
+    setOllamaListError(null);
+    list_ollama_model_infos()
+      .then((models) => {
+        if (cancelled) return;
+        const names = models.map((m) => m.name);
+        setOllamaModels(names);
+        setSelectedOllamaModel((current) =>
+          current && names.includes(current)
+            ? current
+            : pick_strongest_ollama_model(models),
+        );
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setOllamaModels([]);
+        setOllamaListError(
+          e instanceof Error
+            ? e.message
+            : "Can't connect to Ollama. Open the Ollama app and try again.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setOllamaModelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modelHost]);
 
   async function rescan_selected_folder(path: string) {
     setIsTreeRevealing(false);
@@ -258,7 +301,12 @@ function App() {
     setOrganizeResult(null);
     setIsProposingChanges(true);
     try {
-      const result = await organize_folder(folderContents, userPreferences, claudeApiKey);
+      const result = await organize_folder(folderContents, userPreferences, {
+        host: modelHost,
+        claude_api_key: claudeApiKey,
+        ollama_model: selectedOllamaModel,
+        ollama_installed_models: ollamaModels,
+      });
       setOrganizeResult(result);
     } catch (e) {
       console.error(e);
@@ -350,6 +398,13 @@ function App() {
         claudeApiKey={claudeApiKey}
         onClaudeApiKeyChange={update_claude_api_key}
         hasClaudeApiKey={has_claude_api_key(claudeApiKey)}
+        modelHost={modelHost}
+        onModelHostChange={setModelHost}
+        ollamaModels={ollamaModels}
+        selectedOllamaModel={selectedOllamaModel}
+        onSelectedOllamaModelChange={setSelectedOllamaModel}
+        ollamaModelsLoading={ollamaModelsLoading}
+        ollamaListError={ollamaListError}
         onOrganize={organize_folder_click}
         isProposingChanges={isProposingChanges}
         isApplyingChanges={isApplyingChanges}

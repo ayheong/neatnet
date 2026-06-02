@@ -13,9 +13,9 @@
     "windows": [
       {
         "title": "Folder Organizer",
-        "width": 1200,
-        "height": 760,
-        "minWidth": 1180,
+        "width": 1320,
+        "height": 840,
+        "minWidth": 1280,
         "minHeight": 760
       }
     ],

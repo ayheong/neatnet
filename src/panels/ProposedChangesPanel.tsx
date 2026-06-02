@@ -136,11 +136,11 @@ export function ProposedChangesPanel({
             <p className="panel-changes__proposing-hint">Applying selected changes to disk…</p>
           ) : isProposingChanges ? (
             <p className="panel-changes__proposing-hint panel-changes__proposing-hint--pulse">
-              We are teaching the AI your file organization preferences... Your brand spanking new folder will be ready in just a moment!
+              Thinking about how to organize your files…
             </p>
           ) : !selectedFolder ? (
             <p className="panel-changes__placeholder">
-              Select a folder and click "Propose changes" to propose changes…
+              Select a folder, then ask for organization suggestions from the sidebar.
             </p>
           ) : proposeError ? (
             <p className="panel-changes__apply-msg panel-changes__apply-msg--error" role="alert">
@@ -156,10 +156,12 @@ export function ProposedChangesPanel({
               isTreeRevealing={isTreeRevealing}
             />
           ) : organizeResult ? (
-            <p className="panel-changes__placeholder">The model returned no changes. It seems your folder is already well organized! 😊</p>
+            <p className="panel-changes__placeholder">
+              No changes suggested — your folder might already be in good shape.
+            </p>
           ) : applyReport || applyError ? null : (
             <p className="panel-changes__placeholder">
-              Click "Propose changes" to generate an organization plan for this folder.
+              Ask for suggestions from the sidebar to see a plan for this folder.
             </p>
           )}
 
@@ -234,7 +236,7 @@ export function ProposedChangesPanel({
               top: cursor_popout.y + 14,
             }}
           >
-            Click <strong>Propose changes</strong> first.
+            Get suggestions from the sidebar first.
           </p>
         ) : null}
       </div>

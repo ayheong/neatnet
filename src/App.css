@@ -20,12 +20,12 @@ body,
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --app-shell-pad: clamp(0.65rem, 1.25vw + 0.35rem, 1.35rem);
-  --app-shell-gap: clamp(0.65rem, 1.1vw + 0.4rem, 1.35rem);
-  --panel-controls-pad-x: clamp(1rem, 2.2vw + 0.45rem, 1.9rem);
-  --panel-controls-pad-y: clamp(1rem, 1.6vw + 0.55rem, 1.65rem);
-  --panel-controls-gap: clamp(0.75rem, 1.25vw + 0.4rem, 1.35rem);
-  --panel-title-size: clamp(1.2rem, 1rem + 1vw, 1.65rem);
+  --app-shell-pad: clamp(0.5rem, 1vw + 0.3rem, 1rem);
+  --app-shell-gap: clamp(0.5rem, 0.9vw + 0.3rem, 1rem);
+  --panel-controls-pad-x: clamp(0.95rem, 1.9vw + 0.4rem, 1.65rem);
+  --panel-controls-pad-y: clamp(0.85rem, 1.3vw + 0.45rem, 1.4rem);
+  --panel-controls-gap: clamp(0.6rem, 1vw + 0.32rem, 1rem);
+  --panel-title-size: clamp(1.05rem, 0.95rem + 0.75vw, 1.45rem);
   --panel-path-size: clamp(0.76rem, 0.68rem + 0.35vw, 0.92rem);
   --terminal-font: clamp(0.8rem, 0.72rem + 0.4vw, 0.95rem);
   --terminal-line-height: clamp(1.5, calc(1.46 + 0.12vw), 1.65);
@@ -60,7 +60,8 @@ select {
 }
 
 .panel--controls {
-  flex: 1.15;
+  flex: 1.32;
+  min-width: min(100%, 22rem);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -70,6 +71,8 @@ select {
   border: 1px solid #34353a;
   color: #d8dee9;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .panel-controls__titlebar {
@@ -89,7 +92,7 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.1rem;
   text-align: center;
 }
 
@@ -122,7 +125,7 @@ select {
   box-shadow: none;
   font-size: clamp(0.88rem, 0.82rem + 0.3vw, 0.98rem);
   font-weight: 500;
-  padding: clamp(0.5em, 0.45em + 0.3vw, 0.62em) clamp(0.85em, 0.8em + 0.45vw, 1.05em);
+  padding: clamp(0.42em, 0.38em + 0.25vw, 0.52em) clamp(0.75em, 0.7em + 0.35vw, 0.9em);
   cursor: pointer;
   transition:
     border-color 0.12s ease,
@@ -155,8 +158,8 @@ select {
 
 .panel-controls__path-box {
   box-sizing: border-box;
-  min-height: 2.75rem;
-  padding: 0.55rem 0.65rem;
+  min-height: 2.35rem;
+  padding: 0.4rem 0.55rem;
   border-radius: 6px;
   background: #1a1c21;
   border: 1px solid #33353c;
@@ -190,7 +193,7 @@ select {
 .panel-controls__pill {
   flex: 1;
   min-width: 4.5rem;
-  padding: 0.42rem 0.5rem;
+  padding: 0.32rem 0.42rem;
   border-radius: 6px;
   background: #25272e;
   border: 1px solid #33353c;
@@ -216,15 +219,158 @@ select {
 }
 
 .panel-controls__fill {
-  flex: 1;
-  min-height: 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0.35rem;
 }
 
-.panel-controls__api-key {
+.panel-controls__provider {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 0.65rem;
+  gap: 0.28rem;
+  margin-bottom: 0.35rem;
+}
+
+.panel-controls__provider-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.panel-controls__provider-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.panel-controls__provider-btn:hover:not(:disabled):not(.panel-controls__provider-btn--active) {
+  background: rgba(255, 255, 255, 0.04);
+  color: #b1bac4;
+}
+
+.panel-controls__provider-btn--active {
+  border-color: #388bfd66;
+  color: #e6edf3;
+  background: linear-gradient(180deg, #2d333b 0%, #252a32 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 6px rgba(0, 0, 0, 0.22);
+}
+
+.panel-controls__provider-btn--active .panel-controls__provider-btn-icon {
+  color: #79c0ff;
+  opacity: 1;
+}
+
+.panel-controls__provider-btn:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+.panel-controls__provider-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel-controls__provider-btn-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.65;
+  transition: color 0.14s ease, opacity 0.14s ease;
+}
+
+.panel-controls__provider-btn-title {
+  font-size: clamp(0.76rem, 0.72rem + 0.16vw, 0.84rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.panel-controls__api-key,
+.panel-controls__ollama-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.panel-controls__ollama-section {
+  gap: 0.55rem;
+}
+
+.panel-controls__ollama-notice {
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #9e6a0344;
+  background: rgba(210, 153, 34, 0.08);
+}
+
+.panel-controls__ollama-notice-text {
+  margin: 0;
+  font-size: clamp(0.65rem, 0.62rem + 0.12vw, 0.72rem);
+  line-height: 1.4;
+  color: #b1bac4;
+}
+
+.panel-controls__ollama-active {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.panel-controls__ollama-select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem 2rem 0.5rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid #388bfd55;
+  background-color: #0d1117;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px rgba(56, 139, 253, 0.08);
+  color: #e6edf3;
+  font-family: var(--app-mono-font);
+  font-size: clamp(0.82rem, 0.76rem + 0.22vw, 0.92rem);
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+  appearance: none;
+}
+
+.panel-controls__ollama-select:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.panel-controls__ollama-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.panel-controls__ollama-host-hint {
+  margin-top: 0.1rem;
 }
 
 .panel-controls__api-key-label,
@@ -237,14 +383,14 @@ select {
 .panel-controls__api-key-input {
   box-sizing: border-box;
   width: 100%;
-  padding: 0.45rem 0.55rem;
+  padding: 0.38rem 0.5rem;
   border: 1px solid #30363d;
   border-radius: 6px;
   background: #0d1117;
   color: #c9d1d9;
   font-family: var(--app-mono-font);
   font-size: clamp(0.72rem, 0.68rem + 0.14vw, 0.8rem);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .panel-controls__api-key-input::placeholder {
@@ -263,8 +409,8 @@ select {
 
 .panel-controls__api-key-hint {
   margin: 0;
-  font-size: clamp(0.68rem, 0.64rem + 0.15vw, 0.76rem);
-  line-height: clamp(1.4, calc(1.36 + 0.08vw), 1.5);
+  font-size: clamp(0.65rem, 0.62rem + 0.12vw, 0.72rem);
+  line-height: 1.35;
   color: #6e7681;
 }
 
@@ -277,20 +423,114 @@ select {
   text-decoration: underline;
 }
 
+.panel-controls__ollama-recommend {
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #161b22;
+}
+
+.panel-controls__ollama-recommend-title {
+  margin: 0 0 0.25rem;
+  font-size: clamp(0.74rem, 0.7rem + 0.14vw, 0.82rem);
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.panel-controls__ollama-recommend-blurb {
+  margin: 0 0 0.35rem;
+  font-size: clamp(0.65rem, 0.62rem + 0.12vw, 0.72rem);
+  line-height: 1.35;
+  color: #8b949e;
+}
+
+.panel-controls__ollama-recommend-label {
+  margin: 0 0 0.2rem;
+  font-size: clamp(0.65rem, 0.62rem + 0.1vw, 0.72rem);
+  font-weight: 500;
+  color: #b1bac4;
+}
+
+.panel-controls__ollama-recommend-cmd {
+  margin: 0 0 0.3rem;
+}
+
+.panel-controls__ollama-recommend-cmd code {
+  display: block;
+  padding: 0.35rem 0.45rem;
+  border-radius: 4px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  font-family: var(--app-mono-font);
+  font-size: clamp(0.68rem, 0.64rem + 0.12vw, 0.76rem);
+  color: #79c0ff;
+  word-break: break-all;
+}
+
+.panel-controls__ollama-alternatives {
+  margin-top: 0.15rem;
+}
+
+.panel-controls__ollama-alternatives-summary {
+  font-size: clamp(0.65rem, 0.62rem + 0.12vw, 0.72rem);
+  color: #6e7681;
+  cursor: pointer;
+  user-select: none;
+}
+
+.panel-controls__ollama-alternatives-summary:hover {
+  color: #8b949e;
+}
+
+.panel-controls__ollama-alternatives-list {
+  margin: 0.35rem 0 0;
+  padding: 0 0 0 1rem;
+  list-style: disc;
+}
+
+.panel-controls__ollama-alternatives-list li {
+  margin-bottom: 0.35rem;
+  font-size: clamp(0.65rem, 0.62rem + 0.12vw, 0.72rem);
+  color: #8b949e;
+}
+
+.panel-controls__ollama-alternatives-name {
+  display: block;
+  color: #b1bac4;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.panel-controls__ollama-alternatives-size {
+  display: block;
+  margin-top: 0.08rem;
+  font-size: clamp(0.62rem, 0.59rem + 0.08vw, 0.68rem);
+  font-weight: 400;
+  color: #6e7681;
+}
+
+.panel-controls__ollama-alternatives-cmd {
+  display: block;
+  margin-top: 0.12rem;
+  font-family: var(--app-mono-font);
+  font-size: clamp(0.64rem, 0.6rem + 0.1vw, 0.7rem);
+  color: #6e7681;
+}
+
 .panel-controls__preferences {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.28rem;
 }
 
 .panel-controls__preferences-input {
   box-sizing: border-box;
   width: 100%;
-  min-height: 4.5rem;
+  min-height: 3.25rem;
   resize: vertical;
   border-radius: 6px;
   border: 1px solid #33353c;
-  padding: 0.5rem 0.6rem;
+  padding: 0.4rem 0.5rem;
   font-family: var(--app-mono-font);
   font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
   line-height: 1.45;
@@ -315,14 +555,14 @@ select {
 
 .panel-controls__preferences-hint {
   margin: 0;
-  font-size: clamp(0.68rem, 0.64rem + 0.15vw, 0.76rem);
-  line-height: clamp(1.4, calc(1.36 + 0.08vw), 1.5);
+  font-size: clamp(0.65rem, 0.62rem + 0.12vw, 0.72rem);
+  line-height: 1.35;
   color: #6e7681;
 }
 
 .panel-controls__limit-msg {
   margin: 0;
-  padding: 0.45rem 0.55rem;
+  padding: 0.35rem 0.45rem;
   border-radius: 6px;
   font-size: clamp(0.68rem, 0.64rem + 0.15vw, 0.76rem);
   line-height: clamp(1.4, calc(1.36 + 0.08vw), 1.5);
@@ -343,7 +583,7 @@ select {
 .panel-controls__footer {
   flex-shrink: 0;
   margin-top: auto;
-  padding-top: 0.35rem;
+  padding-top: 0.15rem;
 }
 
 .panel-controls__organize-btn {
@@ -351,7 +591,7 @@ select {
   box-sizing: border-box;
   border: 1px solid #4a5f78;
   border-radius: 6px;
-  padding: clamp(0.62em, 0.52em + 0.42vw, 0.78em) 1em;
+  padding: clamp(0.52em, 0.46em + 0.32vw, 0.65em) 0.9em;
   font-size: clamp(0.9rem, 0.84rem + 0.28vw, 1.02rem);
   font-weight: 600;
   letter-spacing: 0.015em;
@@ -452,7 +692,7 @@ select {
 }
 
 .panel--terminal {
-  flex: 1.05;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;

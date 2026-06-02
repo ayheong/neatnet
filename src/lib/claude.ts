@@ -5,8 +5,18 @@ import {
   list_directory_paths,
   normalize_changes_against_index,
 } from "./folderPaths";
+import { call_ollama } from "./ollama";
 import type { TreeNode } from "../types";
 import type { OrganizeResult } from "../types";
+
+export type OrganizeModelHost = "claude" | "ollama";
+
+export type OrganizeFolderOptions = {
+  host: OrganizeModelHost;
+  claude_api_key?: string;
+  ollama_model?: string;
+  ollama_installed_models?: string[];
+};
 
 function text_from_content(
   blocks: Anthropic.Messages.ContentBlock[],
@@ -26,7 +36,7 @@ function resolve_api_key(user_api_key: string): string {
 export async function call_anthropic(message: string, user_api_key = ""): Promise<string> {
   const api_key = resolve_api_key(user_api_key);
   if (!api_key) {
-    throw new Error("Add your Claude API key in the sidebar to propose changes.");
+    throw new Error("Add your Claude API key in the sidebar to get suggestions.");
   }
 
   const anthropic = new Anthropic({
@@ -101,10 +111,24 @@ ${dir_lines}
 ${file_lines}`;
 }
 
+async function call_organize_model(
+  message: string,
+  options: OrganizeFolderOptions,
+): Promise<string> {
+  if (options.host === "ollama") {
+    return call_ollama(
+      message,
+      options.ollama_model,
+      options.ollama_installed_models,
+    );
+  }
+  return call_anthropic(message, options.claude_api_key ?? "");
+}
+
 export async function organize_folder(
   folderContents: TreeNode[],
   user_preferences: string,
-  user_api_key = "",
+  options: OrganizeFolderOptions,
 ): Promise<OrganizeResult> {
   const file_paths = flatten_tree_to_file_paths(folderContents);
   const directory_paths = list_directory_paths(folderContents);
@@ -114,7 +138,7 @@ export async function organize_folder(
   }
 
   const message = build_organize_prompt(file_paths, directory_paths, user_preferences);
-  const response = await call_anthropic(message, user_api_key);
+  const response = await call_organize_model(message, options);
   const cleaned = response.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
   try {
@@ -129,6 +153,6 @@ export async function organize_folder(
     }
     return { changes };
   } catch {
-    throw new Error("Failed to parse JSON response from Anthropic");
+    throw new Error("Failed to parse JSON response from the model");
   }
 }
