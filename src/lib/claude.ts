@@ -17,13 +17,20 @@ function text_from_content(
     .join("");
 }
 
-export async function call_anthropic(message: string): Promise<string> {
-  if (!import.meta.env.VITE_ANTHROPIC_API_KEY) {
-    throw new Error("Anthropic API key is not set");
+function resolve_api_key(user_api_key: string): string {
+  const trimmed = user_api_key.trim();
+  if (trimmed) return trimmed;
+  return import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() ?? "";
+}
+
+export async function call_anthropic(message: string, user_api_key = ""): Promise<string> {
+  const api_key = resolve_api_key(user_api_key);
+  if (!api_key) {
+    throw new Error("Add your Claude API key in the sidebar to propose changes.");
   }
 
   const anthropic = new Anthropic({
-    apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
+    apiKey: api_key,
     dangerouslyAllowBrowser: true,
   });
 
@@ -97,30 +104,31 @@ ${file_lines}`;
 export async function organize_folder(
   folderContents: TreeNode[],
   user_preferences: string,
+  user_api_key = "",
 ): Promise<OrganizeResult> {
-  const file_paths = flatten_tree_to_file_paths(folderContents);  // get all file paths
-  const directory_paths = list_directory_paths(folderContents);  // get all directory paths
+  const file_paths = flatten_tree_to_file_paths(folderContents);
+  const directory_paths = list_directory_paths(folderContents);
 
   if (file_paths.length === 0) {
-    return { changes: [] };  // if no files, return empty changes
+    return { changes: [] };
   }
 
   const message = build_organize_prompt(file_paths, directory_paths, user_preferences);
+  const response = await call_anthropic(message, user_api_key);
+  const cleaned = response.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
-  const response = await call_anthropic(message);  // call anthropic
-  const cleaned = response.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();  // clean response
   try {
-    const parsed = JSON.parse(cleaned) as OrganizeResult;  // parse response
-    const path_index = build_path_index(file_paths);  // build path index
-    const { changes, unresolved } = normalize_changes_against_index(  // normalize changes against index
-      parsed.changes ?? [],  // store changes
+    const parsed = JSON.parse(cleaned) as OrganizeResult;
+    const path_index = build_path_index(file_paths);
+    const { changes, unresolved } = normalize_changes_against_index(
+      parsed.changes ?? [],
       path_index,
     );
-    if (unresolved.length > 0) {  // log warning
+    if (unresolved.length > 0) {
       console.warn("Skipped changes with unknown source paths:", unresolved);
     }
     return { changes };
-  } catch (error) {
+  } catch {
     throw new Error("Failed to parse JSON response from Anthropic");
   }
 }

@@ -72,7 +72,7 @@ function ProposedChangeFolderLine({
     <div
       className={with_tree_reveal_class(
         isTreeRevealing,
-        `terminal-tree-line panel-changes__tree-line panel-changes__tree-line--folder${extra_line_class}`,
+        `terminal-tree-line panel-changes__tree-line${extra_line_class}`,
       )}
       style={next_tree_reveal_style(isTreeRevealing, line_index)}
     >

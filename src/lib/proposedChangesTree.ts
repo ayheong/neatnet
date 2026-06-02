@@ -114,21 +114,7 @@ export function collect_folder_leaf_ids(folder: ProposedChangeFolder): string[] 
   return ids;
 }
 
-export function collect_proposed_tree_leaf_ids(tree: ProposedChangesTree): string[] {
-  const ids: string[] = [];
-  for (const folder of tree.folders) {
-    ids.push(...collect_folder_leaf_ids(folder));
-  }
-  for (const file of tree.rootFiles) {
-    ids.push(file.id);
-  }
-  for (const file of tree.deletions) {
-    ids.push(file.id);
-  }
-  return ids;
-}
-
-export type FolderSelectionState = "all" | "none" | "partial";
+type FolderSelectionState = "all" | "none" | "partial";
 
 export function folder_selection_state(
   leaf_ids: string[],

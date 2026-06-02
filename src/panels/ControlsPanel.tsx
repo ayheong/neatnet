@@ -14,6 +14,9 @@ type ControlsPanelProps = {
   totalSizeLabel: string;
   userPreferences: string;
   onUserPreferencesChange: (value: string) => void;
+  claudeApiKey: string;
+  onClaudeApiKeyChange: (value: string) => void;
+  hasClaudeApiKey: boolean;
   onOrganize: () => void;
   isProposingChanges: boolean;
   isApplyingChanges: boolean;
@@ -32,6 +35,9 @@ export function ControlsPanel({
   totalSizeLabel,
   userPreferences,
   onUserPreferencesChange,
+  claudeApiKey,
+  onClaudeApiKeyChange,
+  hasClaudeApiKey,
   onOrganize,
   isProposingChanges,
   isApplyingChanges,
@@ -41,7 +47,7 @@ export function ControlsPanel({
   const showStats = selectedFolder && rootTreeLabel && !isScanningFolder;
   const busy = isScanningFolder || isProposingChanges || isApplyingChanges;
   const canOrganize =
-    showStats && fileCount > 0 && !overFileLimit && !scanTruncated;
+    showStats && fileCount > 0 && !overFileLimit && !scanTruncated && hasClaudeApiKey;
   const showFileWarning =
     showStats && fileCount >= WARN_FILE_COUNT && fileCount <= MAX_FILES_TO_ORGANIZE && !scanTruncated;
 
@@ -122,6 +128,40 @@ export function ControlsPanel({
 
       <div className="panel-controls__fill" aria-hidden />
 
+      <div className="panel-controls__api-key">
+        <label className="panel-controls__api-key-label" htmlFor="claude-api-key-input">
+          Claude API key
+        </label>
+        <input
+          id="claude-api-key-input"
+          className="panel-controls__api-key-input"
+          type="password"
+          placeholder="sk-ant-api03-…"
+          value={claudeApiKey}
+          onChange={(e) => onClaudeApiKeyChange(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          disabled={busy}
+        />
+        <p className="panel-controls__api-key-hint">
+          Stored locally on this device.{" "}
+          <a
+            className="panel-controls__api-key-link"
+            href="https://console.anthropic.com/settings/keys"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Get a key from Anthropic
+          </a>
+          .
+        </p>
+        {!hasClaudeApiKey ? (
+          <p className="panel-controls__limit-msg panel-controls__limit-msg--warn" role="status">
+            Add an API key to enable Propose changes.
+          </p>
+        ) : null}
+      </div>
+
       <div className="panel-controls__preferences">
         <label className="panel-controls__preferences-label" htmlFor="user-preferences-input">
           User preferences
@@ -155,11 +195,13 @@ export function ControlsPanel({
           aria-busy={isProposingChanges}
           title={
             !canOrganize && showStats
-              ? scanTruncated || overFileLimit
-                ? `Folder exceeds the ${MAX_FILES_TO_ORGANIZE}-file limit`
-                : fileCount === 0
-                  ? "No files to organize"
-                  : undefined
+              ? !hasClaudeApiKey
+                ? "Add your Claude API key"
+                : scanTruncated || overFileLimit
+                  ? `Folder exceeds the ${MAX_FILES_TO_ORGANIZE}-file limit`
+                  : fileCount === 0
+                    ? "No files to organize"
+                    : undefined
               : undefined
           }
         >

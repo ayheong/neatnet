@@ -20,6 +20,11 @@ import { apply_changes, ApplyValidationError } from "./lib/applyChanges";
 import type { ApplyChangesResult } from "./lib/applyChanges";
 import { flatten_tree_to_file_paths } from "./lib/folderPaths";
 import { organize_folder } from "./lib/claude";
+import {
+  has_claude_api_key,
+  load_claude_api_key,
+  save_claude_api_key,
+} from "./lib/claudeApiKey";
 import type { Change, OrganizeResult, TreeNode } from "./types";
 import "./App.css";
 
@@ -91,6 +96,7 @@ function App() {
   const [filesFoundCount, setFilesFoundCount] = useState(0);
   const [folderTotalBytes, setFolderTotalBytes] = useState<number | null>(null);
   const [userPreferences, setUserPreferences] = useState("");
+  const [claudeApiKey, setClaudeApiKey] = useState(() => load_claude_api_key());
   const [organizeResult, setOrganizeResult] = useState<OrganizeResult | null>(null);
   const [isProposingChanges, setIsProposingChanges] = useState(false);
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
@@ -252,7 +258,7 @@ function App() {
     setOrganizeResult(null);
     setIsProposingChanges(true);
     try {
-      const result = await organize_folder(folderContents, userPreferences);
+      const result = await organize_folder(folderContents, userPreferences, claudeApiKey);
       setOrganizeResult(result);
     } catch (e) {
       console.error(e);
@@ -323,6 +329,11 @@ function App() {
   const totalSizeLabel =
     showStats && folderTotalBytes != null ? format_byte_size(folderTotalBytes) : "—";
 
+  function update_claude_api_key(value: string) {
+    setClaudeApiKey(value);
+    save_claude_api_key(value);
+  }
+
   return (
     <div className="app-shell">
       <ControlsPanel
@@ -336,6 +347,9 @@ function App() {
         totalSizeLabel={totalSizeLabel}
         userPreferences={userPreferences}
         onUserPreferencesChange={setUserPreferences}
+        claudeApiKey={claudeApiKey}
+        onClaudeApiKeyChange={update_claude_api_key}
+        hasClaudeApiKey={has_claude_api_key(claudeApiKey)}
         onOrganize={organize_folder_click}
         isProposingChanges={isProposingChanges}
         isApplyingChanges={isApplyingChanges}
