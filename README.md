@@ -4,6 +4,8 @@
 
 > v0.1 — Always review the preview before applying.
 
+![Neatnet — open folder, preview layout, review moves](docs/neatnet_demo.gif)
+
 ## How it works
 
 1. **Open folder** — pick a folder on your machine (Neatnet scans up to 500 files; skips `node_modules`, `.git`, and similar).
@@ -32,4 +34,4 @@
 
 ## License
 
-License not yet specified.
+MIT — see [LICENSE](LICENSE).
