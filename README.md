@@ -1,6 +1,6 @@
 # Neatnet
 
-**Organize folders with AI** — a desktop app that proposes how to organize a folder, lets you review and edit the plan, then applies changes only when you approve.
+**Organize folders with AI** — a desktop app that proposes how to organize a folder, lets you review and edit the plan, and applies the changes.
 
 > v0.1 — Always review the preview before applying.
 
