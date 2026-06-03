@@ -30,7 +30,7 @@
 2. Set up **either**:
    - [Ollama](https://ollama.com/) with a model, e.g. `ollama pull llama3.1:8b`, **or**
    - a [Claude API key](https://console.anthropic.com/settings/keys) in the app (not saved after you quit).
-3. **Open folder** → optional **Instructions** → choose **Claude** or **Ollama** → **Preview layout** → review → **Apply changes**.
+3. **Open folder** → add optional **Instructions** → choose **Claude** or **Ollama** → **Preview layout** → review → **Apply changes**.
 
 ## License
 
