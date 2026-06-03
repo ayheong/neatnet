@@ -59,6 +59,8 @@ export const COPY = {
 
   errors: {
     organizeFailed: "We couldn't build a preview. Check your connection and try again.",
+    emptyProposal:
+      "No moves to preview. The model may have suggested renames only, paths that don't match your folder, or nothing to change — try different instructions.",
     applyFailed: "Something went wrong while applying changes.",
     claudeKey: "Add your Claude API key to continue.",
     ollamaSelectModel: "Choose an Ollama model to continue.",

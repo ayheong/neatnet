@@ -6,6 +6,7 @@ import {
 } from "../constants";
 import { COPY } from "../copy";
 import type { OrganizeModelHost } from "../lib/claude";
+import { ExternalLink } from "../components/ExternalLink";
 import {
   format_ollama_pull_command,
   format_ollama_recommendation_specs,
@@ -13,6 +14,8 @@ import {
   is_ollama_tag_installed,
   OLLAMA_PULL_RECOMMENDATIONS,
 } from "../lib/ollamaRecommendations";
+
+const ANTHROPIC_API_KEYS_URL = "https://console.anthropic.com/settings/keys";
 
 type ControlsPanelProps = {
   onSelectFolder: () => void;
@@ -236,14 +239,12 @@ export function ControlsPanel({
           />
           <p className="panel-controls__api-key-hint">
             Not saved after you close the app.{" "}
-            <a
+            <ExternalLink
               className="panel-controls__api-key-link"
-              href="https://console.anthropic.com/settings/keys"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={ANTHROPIC_API_KEYS_URL}
             >
               Get a key from Anthropic
-            </a>
+            </ExternalLink>
             .
           </p>
           {!hasClaudeApiKey ? (
@@ -316,14 +317,12 @@ export function ControlsPanel({
                 <code>{format_ollama_pull_command(recommended_pull.tag)}</code>
               </p>
               <p className="panel-controls__api-key-hint">
-                <a
+                <ExternalLink
                   className="panel-controls__api-key-link"
                   href={`https://ollama.com/library/${recommended_pull.tag.split(":")[0]}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
                   More info on ollama.com
-                </a>
+                </ExternalLink>
               </p>
             </div>
           ) : null}

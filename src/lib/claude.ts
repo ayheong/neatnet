@@ -55,17 +55,24 @@ async function call_anthropic(message: string, user_api_key = ""): Promise<strin
     dangerouslyAllowBrowser: true,
   });
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 4096,
-    messages: [{ role: "user", content: message }],
-  });
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      messages: [{ role: "user", content: message }],
+    });
 
-  const text = text_from_content(response.content);
-  if (!text) {
-    throw new Error("Anthropic response contained no text blocks");
+    const text = text_from_content(response.content);
+    if (!text) {
+      throw new Error("Anthropic response contained no text blocks");
+    }
+    return text;
+  } catch (error) {
+    if (error instanceof Anthropic.APIError) {
+      throw new Error(error.message);
+    }
+    throw error;
   }
-  return text;
 }
 
 type OrganizeModelResponse = {
@@ -112,7 +119,7 @@ async function call_organize_model(
   }
   return {
     text: await call_anthropic(message, options.claude_api_key ?? ""),
-    timing: { host: "claude", model: "claude-sonnet-4-5" },
+    timing: { host: "claude", model: "claude-sonnet-4-6" },
   };
 }
 
@@ -150,6 +157,12 @@ export async function organize_folder(
     }
     const deduped = dedupe_changes_by_from(changes);
     const allowed = filter_disallowed_deletes(deduped, user_preferences);
+    const raw_count = parsed.changes?.length ?? 0;
+    if (raw_count > 0 && allowed.length === 0) {
+      console.warn(
+        "Model returned changes but none could be applied (wrong paths, renames only, or no-op moves).",
+      );
+    }
     const timing: OrganizeTiming = {
       ...model_response.timing,
       file_count: file_paths.length,

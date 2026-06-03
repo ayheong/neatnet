@@ -29,6 +29,7 @@
     },
     "fs:allow-read-dir",
     "fs:allow-size",
-    "dialog:default"
+    "dialog:default",
+    "opener:default"
   ]
 }

@@ -51,7 +51,7 @@ describe("normalize_changes_against_index", () => {
     ]);
   });
 
-  it("drops unsupported change types", () => {
+  it("treats legacy rename as move and preserves filenames", () => {
     const index = build_path_index(["misc/photo.jpg"]);
     const { changes } = normalize_changes_against_index(
       [
@@ -64,6 +64,8 @@ describe("normalize_changes_against_index", () => {
       index,
       ["photos"],
     );
-    expect(changes).toEqual([]);
+    expect(changes).toEqual([
+      { type: "move", from: "misc/photo.jpg", to: "photos/photo.jpg" },
+    ]);
   });
 });

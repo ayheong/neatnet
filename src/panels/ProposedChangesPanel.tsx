@@ -92,9 +92,11 @@ export function ProposedChangesPanel({
   );
 
   const apply_count = apply_changes.length;
+  const proposed_count = organizeResult?.changes?.length ?? 0;
   const busy = isProposingChanges || isApplyingChanges;
   const has_proposal = Boolean(organizeResult);
-  const show_preview = has_proposal && Boolean(rootTreeLabel);
+  const show_empty_proposal = has_proposal && proposed_count === 0 && !busy;
+  const show_preview = has_proposal && proposed_count > 0 && Boolean(rootTreeLabel);
   const show_waiting_for_preview = Boolean(selectedFolder) && !has_proposal && !busy;
 
   useEffect(() => {
@@ -198,6 +200,10 @@ export function ProposedChangesPanel({
           ) : proposeError ? (
             <p className="panel-changes__apply-msg panel-changes__apply-msg--error" role="alert">
               {proposeError}
+            </p>
+          ) : show_empty_proposal ? (
+            <p className="panel-changes__apply-msg panel-changes__apply-msg--warn" role="status">
+              {COPY.errors.emptyProposal}
             </p>
           ) : show_preview ? (
             <>

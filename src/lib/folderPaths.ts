@@ -137,7 +137,8 @@ export function normalize_changes_against_index(
       continue;
     }
 
-    if (change.type !== "move") {
+    // Models may still emit legacy "rename"; treat as move (filename preserved below).
+    if (change.type !== "move" && (change.type as string) !== "rename") {
       continue;
     }
 
